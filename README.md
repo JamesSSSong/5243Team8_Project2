@@ -41,14 +41,20 @@ enhance the user experience and analytical capabilities of your app.
     - Handle missing values through imputation or removal strategies
     - Perform necessary transformations such as scaling, encoding categorical
        features, and handling outliers
+
+
 **3. Feature Engineering**
     - Create new features that enhance data insights
     - Provide an interactive way for users to generate and modify features
     - Allow users to see the impact of the transformation modifications
+
+
 **4. Exploratory Data Analysis (EDA)**
     - Implement interactive visualization
     - Display summary of data (e.g., statistical distributions, correlation etc.)
     - Allow users to dynamically filter and explore the dataset
+
+
 **5. User Interface (UI) and User Experience (UX)**
     - The UI should be complex yet user-friendly, allowing users to navigate easily and
        interact with all functionalities seamlessly
@@ -56,13 +62,13 @@ enhance the user experience and analytical capabilities of your app.
        application (could be the first tab or page of the application)
     - Ensure responsiveness, with a well-structured layout
 
-**6. Web Application Functionality (Interactivity, Usability, and Responsiveness)
 
-- The app should be highly interactive, allowing users to dynamically manipulate
-    data and visualizations
-- Ensure the app responds quickly to user inputs, with minimal delays in processing
-- Provide a smooth user experience where elements adjust dynamically based on
-    selections and inputs
+**6. Web Application Functionality (Interactivity, Usability, and Responsiveness)**
+    - The app should be highly interactive, allowing users to dynamically manipulate
+       data and visualizations
+    - Ensure the app responds quickly to user inputs, with minimal delays in processing
+    - Provide a smooth user experience where elements adjust dynamically based on
+       selections and inputs
 
 
 ## Project Deliverables [Due on March 12 th at 11:59PM]
@@ -73,9 +79,12 @@ enhance the user experience and analytical capabilities of your app.
     each team member’s contribution to the project.
     You must submit the report on Courseworks (one member of a team can submit the
     report on behalf of the team).
+
+
 2. **Shiny Application Source Code Files** : A well-commented Python and/or R script(s)
     containing the full workflow (these files should be submitted in a GitHub repository with
     proper documentation; include a README file with instructions on how to run the code).
+
 
 ## Evaluation Rubrics
 
@@ -83,6 +92,8 @@ enhance the user experience and analytical capabilities of your app.
     - Basic [2pt] - Supports only one file format
     - Intermediate [5pt] - Supports multiple file formats
     - Advanced [8pt] – Supports various file formats, includes built-in datasets
+
+
 **2. Data Cleaning and Preprocessing [0 – 8pt]**
     - Basic [2pt] - Simple handling of missing values and duplicates with minimal
        automation
@@ -90,6 +101,8 @@ enhance the user experience and analytical capabilities of your app.
        categorical variables
     - Advanced [8pt] – Provides an interactive interface for users to choose preprocessing
        steps dynamically with real-time feedback
+
+
 **3. Feature Engineering [0 – 8pt]**
     - Basic [2pt] - Implements only basic transformations such as creating new features
        manually
@@ -112,7 +125,8 @@ enhance the user experience and analytical capabilities of your app.
        navigation and tooltips
     - Advanced [8pt] - UI is highly interactive, visually polished, user-friendly, responsive
        across devices, and does not break easily when handling different inputs
-       
+
+
 **6. Web Application Functionality (Interactivity, Usability, and Responsiveness) [0 – 8pt]**
     - Basic [2pt] - Limited interactivity, with slow response times and minimal dynamic
        updates
