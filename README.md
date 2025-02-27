@@ -103,6 +103,8 @@ enhance the user experience and analytical capabilities of your app.
     - Intermediate [5pt] - Provides interactive visualizations with basic filtering options
     - Advanced [8pt] - Offers fully interactive data exploration with filtering, custom
        visualization settings, and dynamic statistical insights
+
+
 **5. User Interface (UI) and User Experience (UX) [0 – 8pt]**
     - Basic [2pt] - UI is functional but lacks user-friendliness, with minimal instructions and
        poor design
@@ -111,7 +113,7 @@ enhance the user experience and analytical capabilities of your app.
     - Advanced [8pt] - UI is highly interactive, visually polished, user-friendly, responsive
        across devices, and does not break easily when handling different inputs
        
-**6. Web Application Functionality (Interactivity, Usability, and Responsiveness) [0 – 8pt]
+**6. Web Application Functionality (Interactivity, Usability, and Responsiveness) [0 – 8pt]**
     - Basic [2pt] - Limited interactivity, with slow response times and minimal dynamic
        updates
     - Intermediate [5pt] - Offers reasonable interactivity with some dynamic updates and
