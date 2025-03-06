@@ -59,6 +59,15 @@ observeEvent(input$loadData, {
     summaryLog("Data loaded successfully.")  # Log the event
 })
 
+#Save the Choice
+observe({
+    df <- reactiveData()  # Get dataset
+    if (!is.null(df)) {
+        updateSelectInput(session, "xvar", choices = names(df)) 
+        updateSelectInput(session, "yvar", choices = names(df))  
+    }
+})
+
 # Remove Duplicates
 observeEvent(input$removeDup, {
     df <- reactiveData()
@@ -86,6 +95,13 @@ output$dataTable <- renderDT({
 # Show Data Summary
 output$dataSummary <- renderPrint({
     summary(reactiveData())
+})
+
+#Show Plot
+output$plot <- renderPlot({
+    req(input$xvar, input$yvar) 
+    ggplot(reactiveData(), aes_string(x = input$xvar, y = input$yvar)) +
+      geom_point() + theme_minimal()
 })
 
 }
