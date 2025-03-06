@@ -67,9 +67,9 @@ observeEvent(input$removeDup, {
     if (num_duplicates > 0) {
         df_clean <- unique(df)  # Remove duplicates
         reactiveData(df_clean)  
-        summaryLog(paste(summaryLog(), "\nRemoved Duplicates:", num_duplicates))  # Append log
+        summaryLog(paste(summaryLog(), "Removed Duplicates:", num_duplicates))  # Append log
     } else {
-        summaryLog(paste(summaryLog(), "\nNo duplicates found."))  # Append log
+        summaryLog(paste(summaryLog(), "No duplicates found."))  # Append log
     }
 })
 
