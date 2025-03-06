@@ -1,0 +1,93 @@
+library(shiny)
+library(shinythemes)
+library(DT)
+library(ggplot2)
+library(readr)
+library(readxl)
+library(jsonlite)
+library(tools)
+
+ui <- fluidPage(
+  theme = shinytheme("flatly"),
+  titlePanel("Interactive Data Analysis App"),
+  sidebarLayout(
+    sidebarPanel(
+      fileInput("file", "Upload Dataset", accept = c(".csv", ".xlsx", ".json", ".rds")),
+      selectInput("dataset", "Or Select a Sample Dataset", 
+                  choices = c("mtcars", "iris")),
+      actionButton("loadData", "Load Data"),
+      actionButton("removeDup", "Remove Duplicate"),
+      hr(),
+      checkboxInput("header", "Header", TRUE)
+    ),
+    
+    mainPanel(
+     tabsetPanel(
+     	tabPanel("Data Preview", DTOutput("dataTable")),
+    	tabPanel("Data Summary", verbatimTextOutput("dataSummary")),
+    	tabPanel("Summary", verbatimTextOutput("summaryInfo")),  
+    	tabPanel("Visualization", 
+             selectInput("xvar", "X-axis", choices = NULL),
+             selectInput("yvar", "Y-axis", choices = NULL),
+             plotOutput("plot"))
+)
+    )
+  )
+)
+
+server <- function(input, output, session) {
+	# Store 
+origionData <- reactiveVal(NULL)  
+reactiveData <- reactiveVal(NULL)  
+summaryLog <- reactiveVal("No modifications made yet.")  # Store modification logs
+
+# Upload & Read Data
+observeEvent(input$loadData, {
+    df <- if (!is.null(input$file)) {
+        ext <- tools::file_ext(input$file$name)
+        switch(ext,
+               csv = read_csv(input$file$datapath),
+               xlsx = read_excel(input$file$datapath),
+               json = fromJSON(input$file$datapath),
+               rds = readRDS(input$file$datapath),
+               stop("Invalid file format"))
+    } else {
+        get(input$dataset)
+    }
+    origionData(df)
+    reactiveData(df)
+    summaryLog("Data loaded successfully.")  # Log the event
+})
+
+# Remove Duplicates
+observeEvent(input$removeDup, {
+    df <- reactiveData()
+    num_duplicates <- sum(duplicated(df))  # Count exact duplicate rows
+    
+    if (num_duplicates > 0) {
+        df_clean <- unique(df)  # Remove duplicates
+        reactiveData(df_clean)  
+        summaryLog(paste(summaryLog(), "\nRemoved Duplicates:", num_duplicates))  # Append log
+    } else {
+        summaryLog(paste(summaryLog(), "\nNo duplicates found."))  # Append log
+    }
+})
+
+# Display Modification Summary
+output$summaryInfo <- renderPrint({
+    summaryLog()  # Display all changes made to data
+})
+
+# Show Data Preview
+output$dataTable <- renderDT({
+    datatable(reactiveData())
+})
+
+# Show Data Summary
+output$dataSummary <- renderPrint({
+    summary(reactiveData())
+})
+
+}
+
+shinyApp(ui, server)
