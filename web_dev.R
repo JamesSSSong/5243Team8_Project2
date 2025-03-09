@@ -45,52 +45,154 @@ standardize <- function(df, scale_cols) {
   return(df)
 }
 
+# Encoding categorical features
+encode_categorical <- function(df, encode_cols, strategy = "None") {
+  if (!is.null(encode_cols) && length(encode_cols) > 0 && strategy != "None") {
+    for (col in encode_cols) {
+          if (is.factor(df[[col]])) {
+            if(strategy == "One-Hot Encoding") {
+              # One-hot encoding
+              dummies <- model.matrix(~ . -1, data = df[col])
+              dummies <- as.data.frame(dummies)
+              df[[col]] <- NULL
+              df <- cbind(df, dummies)
+            } else if (strategy == "Dummy Encoding") {
+              # Dummy encoding
+              dummies <- model.matrix(~ . , data = df[col])
+              dummies <- as.data.frame(dummies[,-1, drop = FALSE])
+              df[[col]] <- NULL
+              df <- cbind(df, dummies)
+            }
+          }
+    }
+  }
+  return(df)
+}
+
+# Detect and handle outliers
+handle_outliers <- function(df, outlier_strategy = "None") {
+  numeric_cols <- names(df)[sapply(df, is.numeric)]
+  
+  if(outlier_strategy == "Remove Outliers") {
+    for(col in numeric_cols) {
+      Q1 <- quantile(df[[col]], 0.25, na.rm = TRUE)
+      Q3 <- quantile(df[[col]], 0.75, na.rm = TRUE)
+      IQR <- Q3 - Q1
+      lower_bound <- Q1 - 1.5 * IQR
+      upper_bound <- Q3 + 1.5 * IQR
+      # Remove rows with outliers
+      df <- df %>% filter(df[[col]] >= lower_bound & df[[col]] <= upper_bound)
+    }
+  } else if(outlier_strategy == "Winsorize Outliers") {
+    for(col in numeric_cols) {
+      Q1 <- quantile(df[[col]], 0.25, na.rm = TRUE)
+      Q3 <- quantile(df[[col]], 0.75, na.rm = TRUE)
+      IQR_val <- Q3 - Q1
+      lower_bound <- Q1 - 1.5 * IQR_val
+      upper_bound <- Q3 + 1.5 * IQR_val
+      df[[col]] <- ifelse(df[[col]] < lower_bound, lower_bound,
+                          ifelse(df[[col]] > upper_bound, upper_bound, df[[col]]))
+    }
+  }
+  return(df)
+}
+
 # User Interface (UI)
 ui <- fluidPage(
   theme = shinytheme("flatly"),
   navbarPage(
     "Interactive Data Analysis App",
     
-    # Analysis Page with Tabs
+    # 1. Load Datasets
     tabPanel(
-      title = "Analysis",
-      titlePanel("Analysis"),  # Main title for the Analysis section
+      title = "Loading Datasets",
+      titlePanel("Loading Datasets"),
       
       sidebarLayout(
         sidebarPanel(
-          h4("Inputs"),
           fileInput("file", "Upload Dataset", accept = c(".csv", ".xlsx", ".json", ".rds")),
-          selectInput("dataset", "Or Select a Sample Dataset", 
-                      choices = c("mtcars", "iris")),
+          selectInput("dataset", "Or Select a Sample Dataset", choices = c("mtcars", "iris")),
+          actionButton("loadData", "Load Data")
+        ),
+        mainPanel(
+          h4("Instructions"),
+          p("Upload your dataset or select a sample dataset (e.g., mtcars or iris), then click 'Load Data'."),
+          
+          tabsetPanel(
+            tabPanel("Original Data Preview", DTOutput("originalDataTable"))
+          )
+        )
+      )
+    ),
+    
+    # 3. Data Processing
+    tabPanel(
+      title = "Data Preprocess",
+      titlePanel("Data Preprocess"),
+      
+      sidebarLayout(
+        sidebarPanel(
+          h4("Data Cleaning & Preprocessing"),
+          
           selectInput("missingStrategy", "Missing Value Strategy", 
                       choices = c("Remove Rows", "Impute Values")),
-          actionButton("loadData", "Load Data"),
-          actionButton("removeDup", "Remove Duplicates"),
           
-          selectizeInput("scaleCols", "Columns to Scale", 
-                         choices = NULL, multiple = TRUE),
-          actionButton("scaleBtn", "Standardize"),
+          checkboxInput("removeDuplicates", "Remove Duplicates", value = FALSE),
           
           hr(),
-          checkboxInput("header", "Header", TRUE)
+          selectizeInput("scaleCols", "Columns to Scale", 
+                         choices = NULL, multiple = TRUE),
+          
+          hr(),
+          selectizeInput("encodeCols", "Categorical Columns to Encode", choices = NULL, multiple = TRUE),
+          selectInput("encodingStrategy", "Categorical Encoding Strategy",
+                      choices = c("None", "One-Hot Encoding", "Dummy Encoding")),
+          
+          hr(),
+          
+          selectInput("outlierStrategy", "Outlier Handling Strategy", 
+                      choices = c("None", "Remove Outliers", "Winsorize Outliers")),
+          hr(),
+          actionButton("processData", "Process Data", class = "btn-primary")
         ),
         
         mainPanel(
           tabsetPanel(
-            tabPanel("Data Preview", DTOutput("dataTable")),
             tabPanel("Data Statistics", verbatimTextOutput("dataSummary")),
             tabPanel("Duplicates", DTOutput("dupTable")),
             tabPanel("Distribution",
                      selectInput("distCol", "Select Column for Impact Analysis", choices = NULL),
-                     plotOutput("distPlot")),
+                     radioButtons("distPlotType", "Plot Type", choices = c("Histogram", "Boxplot")),
+                     plotOutput("distPlot")
+                     ),
             tabPanel("Summary", verbatimTextOutput("summaryInfo")),  
-            tabPanel("Visualization", 
-                     selectInput("xvar", "X-axis", choices = NULL),
-                     selectInput("yvar", "Y-axis", choices = NULL),
-                     plotOutput("plot"))
+            tabPanel("Processed Data", DTOutput("processedDataTable")),
           )
         )
       )
+    ),
+    
+    # 3. Feature Engineering
+    tabPanel(
+      title = "Feature Engineering",
+      titlePanel("Feature Engineering")
+      # Add UI elements for feature engineering tasks here
+      
+      
+      ),
+      
+    # 4. EDA tab
+    tabPanel(
+      title = "EDA",
+      titlePanel("EDA"),
+      # Add UI elements for exploratory data analysis here
+      
+      tabsetPanel(
+        tabPanel("Visualization",
+                 selectInput("xvar", "X-axis", choices = NULL),
+                 selectInput("yvar", "Y-axis", choices = NULL),
+                 plotOutput("plot")),
+        )
     ),
     
     # About Page
@@ -138,36 +240,65 @@ server <- function(input, output, session) {
       updateSelectInput(session, "yvar", choices = names(df))
       
       numeric_cols <- names(df)[sapply(df, is.numeric)]
-      updateSelectizeInput(session, "scaleCols", choices = numeric_cols, server = TRUE)
       updateSelectInput(session, "distCol", choices = numeric_cols)
+      updateSelectizeInput(session, "scaleCols", choices = numeric_cols, server = TRUE)
+      
+      categorical_cols <- names(df)[sapply(df, is.factor)]
+      updateSelectizeInput(session, "encodeCols", choices = categorical_cols, server = TRUE)
     }
   })
   
-  observeEvent(input$removeDup, {
-    df <- reactiveData()
-    num_duplicates <- sum(duplicated(df))
-    if (num_duplicates > 0) {
-      df_clean <- unique(df)
-      reactiveData(df_clean)
-      summaryLog(paste(summaryLog(), "Removed Duplicates:", num_duplicates))
-    } else {
-      summaryLog(paste(summaryLog(), "No duplicates found."))
-    }
-  })
-  
-  observeEvent(input$scaleBtn, {
+  observeEvent(input$processData, {
     req(origionData())
     df <- origionData()
-    df <- standardize(df, input$scaleCols)
+    
+    # 1. Remove Duplicates if checked
+    if (input$removeDuplicates) {
+      num_duplicates <- sum(duplicated(df))
+      if (num_duplicates > 0) {
+        df <- unique(df)
+        summaryLog(paste(summaryLog(), "Removed Duplicates:", num_duplicates))
+      } else {
+        summaryLog(paste(summaryLog(), "No duplicates found."))
+      }
+    }
+    
+    # 2. Scale if user selected columns
+    if (!is.null(input$scaleCols) && length(input$scaleCols) > 0) {
+      df <- standardize(df, input$scaleCols)
+      summaryLog(paste(summaryLog(), "Scaled columns:", paste(input$scaleCols, collapse = ", ")))
+    }
+    
+    # 3. Encode categorical cols if user selected cols & strategy != "None"
+    if (!is.null(input$encodeCols) && length(input$encodeCols) > 0 && input$encodingStrategy != "None") {
+      df <- encode_categorical(df, input$encodeCols, strategy = input$encodingStrategy)
+      summaryLog(paste(summaryLog(), "Encoded columns:", paste(input$encodeCols, collapse = ", "),
+                       "Strategy:", input$encodingStrategy))
+    }
+    
+    # 4. Handle Outliers
+    if (input$outlierStrategy != "None") {
+      df <- handle_outliers(df, 
+                            outlier_strategy = input$outlierStrategy)
+      summaryLog(paste(summaryLog(), "Outlier Handling:", input$outlierStrategy))
+    }
+    
+    # Update reactiveData
     reactiveData(df)
+  })
+  
+  output$originalDataTable <- renderDT({
+    req(origionData())
+    datatable(origionData())
+  })
+  
+  output$processedDataTable <- renderDT({
+    req(reactiveData())
+    datatable(reactiveData())
   })
   
   output$summaryInfo <- renderPrint({
     summaryLog()
-  })
-  
-  output$dataTable <- renderDT({
-    datatable(reactiveData())
   })
   
   output$dataSummary <- renderPrint({
@@ -191,21 +322,35 @@ server <- function(input, output, session) {
   output$distPlot <- renderPlot({
     req(input$distCol, origionData(), reactiveData())
     col <- input$distCol
+    
+    # Extract the chosen column from both original and processed data
     orig_values <- origionData()[[col]]
-    scaled_values <- reactiveData()[[col]]
+    proc_values <- reactiveData()[[col]]
     
-    plot_data <- data.frame(
-      value = c(orig_values, scaled_values),
-      Dataset = rep(c("Original", "Scaled"), each = length(orig_values))
-    )
+    # Build two data frames 
+    plot_data_orig <- data.frame(value = orig_values, Dataset = "Original")
+    plot_data_proc <- data.frame(value = proc_values, Dataset = "Processed")
     
-    ggplot(plot_data, aes(x = value, fill = Dataset)) +
-      geom_histogram(aes(y = ..density..), bins = 30, alpha = 0.5, position = "identity") +
-      geom_density(alpha = 0.2) +
-      facet_wrap(~Dataset, scales = "free_x") +
-      theme_minimal() +
-      labs(title = paste("Distribution Impact for", col), x = col, y = "Density")
+    # Combine
+    plot_data <- rbind(plot_data_orig, plot_data_proc)
+    
+    if (input$distPlotType == "Histogram") {
+      ggplot(plot_data, aes(x = value, fill = Dataset)) +
+        geom_histogram(aes(y = ..density..), bins = 30, alpha = 0.5, position = "identity") +
+        geom_density(alpha = 0.2) +
+        facet_wrap(~Dataset, scales = "free_x") +
+        theme_minimal() +
+        labs(title = paste("Distribution Impact for", col),
+             x = col, y = "Density")
+    } else { # boxplot
+      ggplot(plot_data, aes(x = Dataset, y = value, fill = Dataset)) +
+        geom_boxplot(alpha = 0.5) +
+        theme_minimal() +
+        labs(title = paste("Boxplot Comparison for", col),
+             x = "Dataset", y = col)
+    }
   })
+  
 }
 
 # Run Shiny App
