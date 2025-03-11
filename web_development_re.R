@@ -232,13 +232,28 @@ ui <- fluidPage(
                 condition = "input.linePlot == true",
                 h4("Line Plot Option"),
                 checkboxInput("lineSmooth", "Smooth")
-              )
+              ),
             ),
             
             mainPanel(
               h4("Visualization"),
               plotOutput("scatterPlotOutput", height = "350px"),
               plotOutput("linePlotOutput", height = "350px")
+            )
+          )
+        ),
+        
+        # Heat Map Tab
+        tabPanel(
+          title = "Heat Map",
+          sidebarLayout(
+            sidebarPanel(
+              h4("Correlation Heatmap"),
+              p("Displays the correlation between all numeric variables in the dataset.")
+            ),
+            
+            mainPanel(
+              plotOutput("heatmapOutput", height = "500px")
             )
           )
         )
@@ -787,6 +802,37 @@ server <- function(input, output, session) {
     }
     
     p
+  })
+  
+  # Render Correlation Heatmap
+  output$heatmapOutput <- renderPlot({
+    df <- reactiveData()
+    req(df)
+    
+    # Select only numeric columns
+    numeric_df <- df %>% select(where(is.numeric))
+    
+    # Check if there are numeric variables to compute correlation
+    if (ncol(numeric_df) < 2) {
+      showNotification("Not enough numeric variables for correlation heatmap.", type = "warning")
+      return(NULL)
+    }
+    
+    # Compute correlation matrix
+    cor_matrix <- cor(numeric_df, use = "pairwise.complete.obs")
+    
+    # Convert correlation matrix into long format for ggplot
+    cor_long <- reshape2::melt(cor_matrix)
+    
+    # Create heatmap using ggplot2
+    ggplot(cor_long, aes(Var1, Var2, fill = value)) +
+      geom_tile(color = "white") +
+      scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                           midpoint = 0, limit = c(-1,1), space = "Lab", 
+                           name="Correlation") +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+      labs(title = "Correlation Heatmap", x = "", y = "")
   })
   
 }
