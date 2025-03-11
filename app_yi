@@ -7,6 +7,8 @@ library(readxl)
 library(jsonlite)
 library(tools)
 library(dplyr)
+library(glmnet)
+library(olsrr)
 
 # User Interface (UI)
 ui <- fluidPage(
@@ -36,7 +38,7 @@ ui <- fluidPage(
       )
     ),
     
-    # 3. Data Processing
+    # 2. Data Processing
     tabPanel(
       title = "Data Preprocess",
       titlePanel("Data Preprocess"),
@@ -77,7 +79,7 @@ ui <- fluidPage(
                      plotOutput("distPlot")
                      ),
             tabPanel("Summary", verbatimTextOutput("summaryInfo")),  
-            tabPanel("Processed Data", DTOutput("processedDataTable")),
+            tabPanel("Processed Data", DTOutput("processedDataTable"))
           )
         )
       )
@@ -88,22 +90,52 @@ ui <- fluidPage(
       title = "Feature Engineering",
       titlePanel("Feature Engineering"),
       
-      # PCA
+      
       sidebarLayout(
-        sidebarPanel(
-          h4("PCA (Principal Component Analysis)"),
-          selectizeInput("pcaCols", "Select Columns for PCA", choices = NULL, multiple = TRUE),
-          numericInput("numPCA", "Number of Principal Components", value = 2, min = 1, max = 10, step = 1),
-          actionButton("applyPCA", "Apply PCA", class = "btn-primary"),
-          actionButton("savePCA", "Save PCA Result", class = "btn-primary")
-        ),
-        mainPanel(
-          tabsetPanel(
-            tabPanel("PCA Summary", verbatimTextOutput("pcaSummary")),
-            tabPanel("PCA Transformed Data", DTOutput("pcaDataTable"))
-          )
-        )
-      )
+  sidebarPanel(
+    tabsetPanel(
+    # PCA
+      tabPanel("PCA",
+        h4("PCA (Principal Component Analysis"),
+        selectizeInput("pcaCols", "Select Columns for PCA", choices = NULL, multiple = TRUE),
+        numericInput("numPCA", "Number of Principal Components", value = 2, min = 1, max = 10, step = 1),
+        actionButton("applyPCA", "Apply PCA", class = "btn-primary"),
+        actionButton("savePCA", "Save PCA Result", class = "btn-primary")
+      ),
+      #Feature Selection
+      tabPanel("Feature Selection",
+        h4("Feature Selection"),
+        selectizeInput("FSCols", "Select Methods for Feature Selection", 
+                       choices = c("LASSO", "Elastic Net", "Forward Stepwise", "Backward Stepwise","Bothway Stepwise")),
+        selectizeInput("FSyCols", "Select Dependent Variable", choices = NULL, multiple = FALSE),
+        numericInput("lambdaL", "Value of Lambda for Regularization", value = 0.01, min = 0, max = 100, step = 0.01),
+         checkboxInput("lambdaCV", "Cross Validation for Select Lambda", value = FALSE),
+        selectizeInput("criteriaFS", "Selection Criteria for Stepwise", 
+                      choices = c("p-value","adjust R^2", "AIC")),
+       	checkboxInput("detailFS", "Show the detail of Model", value = FALSE),
+       	actionButton("applyFS", "Apply Feature Selection", class = "btn-primary")
+      ),
+     #New Feature
+	tabPanel("Making New Feature",
+		h4("Making New Feature"),
+		selectizeInput("oldF1", "Select the first feature you want to operate", choices = NULL, multiple = FALSE),
+		selectizeInput("oldF2", "Select the second feature you want to operate (If not, leave it blank.)", choices = NULL, multiple = FALSE),
+		selectizeInput("NewF", "New Feature Name",choices = NULL),
+		selectizeInput("opF", "Operation Choice", choices = c("Addition","Subtraction","Multiplication","Division","Natural Log")),
+		actionButton("applyOP", "Apply Operation", class = "btn-primary")
+	)
+   ) 
+  ),
+	
+  mainPanel(
+    tabsetPanel(
+      tabPanel("PCA Summary", verbatimTextOutput("pcaSummary")),
+      tabPanel("PCA Transformed Data", DTOutput("pcaDataTable")),
+      tabPanel("Feature Selection Summary", verbatimTextOutput("FSSummary")),
+      tabPanel("New Feature Summary", verbatimTextOutput("newSummary"))
+    )
+  )
+)
       
       
       ),
@@ -222,7 +254,7 @@ handle_outliers <- function(df, outlier_strategy = "None") {
   return(df)
 }
 
-#PCA
+#PCA funtion
 apply_pca <- function(df, pca_cols, n_components) {
   if (!is.null(pca_cols) && length(pca_cols) > 0) {
     pca_model <- prcomp(df[, pca_cols, drop = FALSE], center = TRUE, scale. = TRUE)
@@ -233,12 +265,111 @@ apply_pca <- function(df, pca_cols, n_components) {
   return(df)
 }
 
+ols_step_way_c <- function(lm, way, c) {
+    if (way == "for") {
+        if (c == "p-value") {
+            return(ols_step_forward_p(lm))
+        }
+        if (c == "adjust R^2") {
+            return(ols_step_forward_adj_r2(lm))
+        }
+        if (c == "AIC") {
+            return(ols_step_forward_aic(lm))
+        }
+    }
+    if (way == "back") {
+        if (c == "p-value") {
+            return(ols_step_backward_p(lm))
+        }
+        if (c == "adjust R^2") {
+            return(ols_step_backward_adj_r2(lm))
+        }
+        if (c == "AIC") {
+            return(ols_step_backward_aic(lm))
+        }
+    }
+    if (way == "both") {
+        if (c == "p-value") {
+            return(ols_step_both_p(lm))
+        }
+        if (c == "adjust R^2") {
+            return(ols_step_both_adj_r2(lm))
+        }
+        if (c == "AIC") {
+            return(ols_step_both_aic(lm))
+        }
+    }
+    return(NULL) 
+}
+
+
+#feature_selection function
+ applyFS <- function(df, y_cols,method, lambdaL=0.01, lambdaCV=FALSE, criteriaFS="p-value"){
+	if(!is.data.frame(df)){
+		df <-as.data.frame(df)
+	}
+	
+	X <- df[, setdiff(colnames(df), y_cols)] 
+	y<- df[,y_cols]
+	lambda_val <- lambdaL
+	message<-""
+	error_check <- FALSE
+	
+	if (!all(sapply(X, is.numeric)) || !is.numeric(y)) {
+    message <- "The data contained non-numeric data. This program automatically converts the data into numeric. If you want to customize the data, please considering the function in Data Preprocess Page."
+} else {
+    X <- as.matrix(sapply(X, as.numeric))  
+    y <- as.numeric(y)  
+}
+
+	
+    if (method == "LASSO") {
+      if (lambdaCV) {
+        cv_fit <- cv.glmnet(X, y, alpha = 1)
+        lambda_val <- cv_fit$lambda.min  
+      }
+      model <- glmnet(X, y, alpha = lambdaL, lambda = lambda_val)
+      selected_features <- rownames(coef(model))[coef(model)[, 1] != 0]
+      
+      
+    } else if (method == "Elastic Net") {
+      if (lambdaCV) {
+        cv_fit <- cv.glmnet(X, y, alpha = 0.5)
+        lambda_val <- cv_fit$lambda.min
+      }
+      model <- glmnet(X, y, alpha = lambdaL, lambda = lambda_val)
+      selected_features <- rownames(coef(model))[coef(model)[, 1] != 0]
+      
+      
+    } else if (method == "Forward Stepwise") {
+    		lm_model <- lm(as.formula(paste(y_cols, "~", paste(colnames(X), collapse = " + "))), data = df)
+      		model <- ols_step_way_c(lm_model,"for",criteriaFS) 
+            selected_features <-  names(coef(model$model))[-1]  
+      
+    } else if (method == "Backward Stepwise") {
+      		lm_model <- lm(as.formula(paste(y_cols, "~", paste(colnames(X), collapse = " + "))), data = df)
+      		model <- ols_step_way_c(lm_model,"back",criteriaFS) 
+            selected_features <- names(coef(model$model))[-1]  
+    }else if(method == "Bothway Stepwise"){
+    		lm_model <- lm(as.formula(paste(y_cols, "~", paste(colnames(X), collapse = " + "))), data = df)
+      		model <- ols_step_way_c(lm_model,"both",criteriaFS) 
+            selected_features <- names(coef(model$model))[-1]  
+    }
+    result<-list(method = method,
+    					lambda = lambda_val,
+    					selected_features = selected_features,
+    					error_check = error_check,
+    					model = model)
+    return(result)
+  }
+
 # Server Logic
 server <- function(input, output, session) {
   origionData <- reactiveVal(NULL)  
   reactiveData <- reactiveVal(NULL)  
   summaryLog <- reactiveVal("No modifications made yet.")
   PCA_transformed_Data<- reactiveVal(NULL)  
+  FS_result<- reactiveVal(NULL)  
   
   # Upload & Read Data
   observeEvent(input$loadData, {
@@ -415,6 +546,58 @@ server <- function(input, output, session) {
     reactiveData(df)
   })
   
+  #feature selection
+observeEvent(input$applyFS, {
+    req(reactiveData(), input$FSyCols, input$FSCols)
+    df <- reactiveData()
+    result<- applyFS(df, input$FSyCols, input$FSCols,input$lambdaL,input$lambdaCV,input$criteriaFS)
+     FS_result(result)
+  })
+  
+  observe({
+    df <- reactiveData()
+    if (!is.null(df)) {
+      updateSelectizeInput(session, "FSyCols", choices = colnames(df), server = TRUE)
+    }
+  })
+  
+  # Output feature selection 
+  output$FSSummary <- renderPrint({
+    result <- FS_result() 
+    req(result)
+    if(result$error_check){
+    	cat("Error Message:", result$message, "\n") 
+    }  
+    cat("Feature Selection Method:", result$method, "\n")    
+    if (result$method %in% c("LASSO", "Elastic Net")) {
+        cat("Lambda:", result$lambda, "\n")
+    }    
+    cat("Selected Features:", 
+        if (length(result$selected_features) > 0) {
+            paste(result$selected_features, collapse = ", ")
+        } else {
+            "No features selected."
+        }, "\n"
+    )
+
+      if(input$detailFS){
+      		cat("\n---------- Model Detail ----------\n")
+      		if (result$method %in% c("LASSO", "Elastic Net")){
+      			cat("\nCoefficients at Best Lambda:\n") 
+      				print(coef(result$model, s = "lambda.min"))
+      			cat("\nDeviance Ratio:\n")
+      			print(result$model$dev.ratio)      			
+      		}
+      		else{
+      			print(result$model)
+      }
+      }
+            
+})
+
+
+
+
 }
 
 # Run Shiny App
