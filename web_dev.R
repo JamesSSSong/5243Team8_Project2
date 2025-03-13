@@ -1,4 +1,3 @@
-# Load Required Libraries
 library(shiny)
 library(shinythemes)
 library(DT)
@@ -8,6 +7,278 @@ library(readxl)
 library(jsonlite)
 library(tools)
 library(dplyr)
+library(glmnet)
+library(olsrr)
+
+# User Interface (UI)
+ui <- fluidPage(
+  theme = shinytheme("flatly"),
+  navbarPage(
+    "Interactive Data Analysis App",
+    
+    # 1. Load Datasets
+    tabPanel(
+      title = "Loading Datasets",
+      titlePanel("Loading Datasets"),
+      
+      sidebarLayout(
+        sidebarPanel(
+          fileInput("file", "Upload Dataset", accept = c(".csv", ".xlsx", ".json", ".rds")),
+          selectInput("dataset", "Or Select a Sample Dataset", choices = c("mtcars", "iris")),
+          actionButton("loadData", "Load Data")
+        ),
+        mainPanel(
+          h4("Instructions"),
+          p("Upload your dataset or select a sample dataset (e.g., mtcars or iris), then click 'Load Data'."),
+          
+          tabsetPanel(
+            tabPanel("Original Data Preview", DTOutput("originalDataTable"))
+          )
+        )
+      )
+    ),
+    
+    # 2. Data Processing
+    tabPanel(
+      title = "Data Preprocess",
+      titlePanel("Data Preprocess"),
+      
+      sidebarLayout(
+        sidebarPanel(
+          h4("Data Cleaning & Preprocessing"),
+          
+          selectInput("missingStrategy", "Missing Value Strategy", 
+                      choices = c("Remove Rows", "Impute Values")),
+          
+          checkboxInput("removeDuplicates", "Remove Duplicates", value = FALSE),
+          
+          hr(),
+          # User manually converse
+          selectizeInput("manualNumeric", "Make Selected Columns to Numeric", 
+                         choices = NULL, multiple = TRUE),
+          selectizeInput("manualCategorical", "Make Selected Columns to Categorical", 
+                         choices = NULL, multiple = TRUE),
+          
+          selectizeInput("scaleCols", "Columns to Scale", 
+                         choices = NULL, multiple = TRUE),
+          
+          hr(),
+          selectizeInput("encodeCols", "Categorical Columns to Encode", choices = NULL, multiple = TRUE),
+          selectInput("encodingStrategy", "Categorical Encoding Strategy",
+                      choices = c("None", "One-Hot Encoding", "Dummy Encoding")),
+          
+          hr(),
+          
+          selectInput("outlierStrategy", "Outlier Handling Strategy", 
+                      choices = c("None", "Remove Outliers", "Winsorize Outliers")),
+          hr(),
+          actionButton("processData", "Process Data", class = "btn-primary")
+        ),
+        
+        mainPanel(
+          tabsetPanel(
+            tabPanel("Data Statistics", verbatimTextOutput("dataSummary")),
+            tabPanel("Duplicates", DTOutput("dupTable")),
+            tabPanel("Distribution",
+                     selectInput("distCol", "Select Column for Impact Analysis", choices = NULL),
+                     radioButtons("distPlotType", "Plot Type", choices = c("Histogram", "Boxplot")),
+                     plotOutput("distPlot")
+            ),
+            tabPanel("Summary", verbatimTextOutput("summaryInfo")),  
+            tabPanel("Processed Data", DTOutput("processedDataTable"))
+          )
+        )
+      )
+    ),
+    
+    # 3. Feature Engineering
+    tabPanel(
+      title = "Feature Engineering",
+      titlePanel("Feature Engineering"),
+      
+      
+      sidebarLayout(
+        sidebarPanel(
+          tabsetPanel(
+            # PCA
+            tabPanel("PCA",
+                     h4("PCA (Principal Component Analysis"),
+                     selectizeInput("pcaCols", "Select Columns for PCA", choices = NULL, multiple = TRUE),
+                     numericInput("numPCA", "Number of Principal Components", value = 2, min = 1, max = 10, step = 1),
+                     actionButton("applyPCA", "Apply PCA", class = "btn-primary"),
+                     actionButton("savePCA", "Save PCA Result", class = "btn-primary")
+            ),
+            #Feature Selection
+            tabPanel("Feature Selection",
+                     h4("Feature Selection"),
+                     selectizeInput("FSCols", "Select Methods for Feature Selection", 
+                                    choices = c("LASSO", "Elastic Net", "Forward Stepwise", "Backward Stepwise","Bothway Stepwise")),
+                     selectizeInput("FSyCols", "Select Dependent Variable", choices = NULL, multiple = FALSE),
+                     numericInput("lambdaL", "Value of Lambda for Regularization", value = 0.01, min = 0, max = 100, step = 0.01),
+                     checkboxInput("lambdaCV", "Cross Validation for Select Lambda", value = FALSE),
+                     selectizeInput("criteriaFS", "Selection Criteria for Stepwise", 
+                                    choices = c("p-value","adjust R^2", "AIC","SBIC")),
+                     checkboxInput("detailFS", "Show the more detail", value = FALSE),
+                     actionButton("applyFS", "Apply Feature Selection", class = "btn-primary")
+            ),
+            #New Feature
+            tabPanel("Making New Feature",
+                     h4("Making New Feature"),
+                     uiOutput("col1_ui"),
+                     radioButtons("input_type", "Choose Input Type:", choices = c("Select Column", "Enter Number"), selected = "Select Column"),
+                     uiOutput("col2_or_number_ui"),
+                     textInput("NewF", "New Feature Name",value = "New Feature"),
+                     selectizeInput("opF", "Operation Choice", choices = c("Addition","Subtraction","Multiplication","Division","Natural Log","Power")),
+                     actionButton("applyOP", "Apply Operation", class = "btn-primary"),
+                     actionButton("saveNF", "Save the New Feature", class = "btn-primary")
+            )
+          ) 
+        ),
+        
+        mainPanel(
+          tabsetPanel(
+            tabPanel("PCA Summary", verbatimTextOutput("pcaSummary")),
+            tabPanel("PCA Transformed Data", DTOutput("pcaDataTable")),
+            tabPanel("Feature Selection Summary", verbatimTextOutput("FSSummary")),
+            tabPanel("New Feature Summary", verbatimTextOutput("newSummary"))
+          )
+        )
+      )
+      
+      
+    ),
+    
+    # 4. EDA tab
+    tabPanel(
+      title = "EDA",
+      titlePanel("EDA"),
+      
+      tabsetPanel(
+        # Univariate Analysis Tab
+        tabPanel(
+          title = "Univariate Analysis",
+          sidebarLayout(
+            sidebarPanel(
+              selectInput("statVar", "Select Variable for Analysis:",
+                          choices = NULL, selected = NULL),
+              
+              # Horizontal layout for Plot Type Selection
+              fluidRow(
+                column(4, checkboxInput("histogram", "Histogram")),
+                column(4, checkboxInput("boxplot", "Boxplot")),
+                column(4, checkboxInput("dotplot", "Dotplot"))
+              ),
+              
+              # Histogram Options
+              conditionalPanel(
+                condition = "input.histogram == true",
+                
+                sliderInput("binWidth", "Select Binwidth For Histogram:",
+                            min = 5, max = 150, value = 30),
+                
+                checkboxGroupInput("histOptions", "Histogram Options:",
+                                   choices = c("Enter Binwidth", 
+                                               "Select Starting Bin", 
+                                               "Display Percent")),
+                
+                conditionalPanel(
+                  condition = "input.histOptions.indexOf('Enter Binwidth') > -1",
+                  numericInput("customBinwidth", "Custom Binwidth:", value = 30, min = 1, step = 1)
+                ),
+                
+                conditionalPanel(
+                  condition = "input.histOptions.indexOf('Select Starting Bin') > -1",
+                  numericInput("startBin", "Lower Bound of First Bin:", value = 0, step = 1)
+                )
+              ),
+              
+              # Boxplot Options
+              conditionalPanel(
+                condition = "input.boxplot == true",
+                h4("Boxplot Options:"),
+                checkboxInput("verticalPlot", "Vertical Plot", value = FALSE)
+              )
+            ),
+            
+            mainPanel(
+              h4("Statistical Summary"),
+              verbatimTextOutput("statSummary"),
+              
+              h4("Distribution Plots"),
+              plotOutput("histPlot", height = "300px"),
+              plotOutput("boxPlot", height = "300px"),
+              plotOutput("dotPlot", height = "300px")
+            )
+          )
+        ),
+        
+        # Bivariate Analysis Tab
+        tabPanel(
+          title = "Bivariate Analysis",
+          sidebarLayout(
+            sidebarPanel(
+              # Select two variables for analysis in the same row
+              fluidRow(
+                column(6, selectInput("xVar", "X-Variable 1:", choices = NULL, selected = NULL)),
+                column(6, selectInput("yVar", "Y-Variable 2:", choices = NULL, selected = NULL))
+              ),
+              
+              # Checkboxes for plot selection
+              fluidRow(
+                column(6, checkboxInput("scatterPlot", "Scatter Plot")),
+                column(6, checkboxInput("linePlot", "Line Plot"))
+              ),
+              
+              # Smooth option appears only if Scatter Plot is selected
+              conditionalPanel(
+                condition = "input.scatterPlot == true",
+                h4("Scatter Plot Option"),
+                checkboxInput("smooth", "Smooth")
+              ),
+              
+              conditionalPanel(
+                condition = "input.linePlot == true",
+                h4("Line Plot Option"),
+                checkboxInput("lineSmooth", "Smooth")
+              ),
+            ),
+            
+            mainPanel(
+              h4("Visualization"),
+              plotOutput("scatterPlotOutput", height = "350px"),
+              plotOutput("linePlotOutput", height = "350px")
+            )
+          )
+        ),
+        
+        # Heat Map Tab
+        tabPanel(
+          title = "Heat Map",
+          sidebarLayout(
+            sidebarPanel(
+              h4("Correlation Heatmap"),
+              p("Displays the correlation between all numeric variables in the dataset.")
+            ),
+            
+            mainPanel(
+              plotOutput("heatmapOutput", height = "500px")
+            )
+          )
+        )
+      )
+    ),
+    
+    # About Page
+    tabPanel(
+      title = "About",
+      titlePanel("About"),
+      p("This Shiny app is designed for interactive data analysis."),
+      p("You can upload your dataset, clean the data, and visualize the results."),
+      p("Created with R Shiny, March 2025")
+    )
+  )
+)
+
 
 # Data Cleaning Function
 clean_data <- function(df, missing_strategy = "Remove Rows") {
@@ -49,21 +320,21 @@ standardize <- function(df, scale_cols) {
 encode_categorical <- function(df, encode_cols, strategy = "None") {
   if (!is.null(encode_cols) && length(encode_cols) > 0 && strategy != "None") {
     for (col in encode_cols) {
-          if (is.factor(df[[col]])) {
-            if(strategy == "One-Hot Encoding") {
-              # One-hot encoding
-              dummies <- model.matrix(~ . -1, data = df[col])
-              dummies <- as.data.frame(dummies)
-              df[[col]] <- NULL
-              df <- cbind(df, dummies)
-            } else if (strategy == "Dummy Encoding") {
-              # Dummy encoding
-              dummies <- model.matrix(~ . , data = df[col])
-              dummies <- as.data.frame(dummies[,-1, drop = FALSE])
-              df[[col]] <- NULL
-              df <- cbind(df, dummies)
-            }
-          }
+      if (is.factor(df[[col]])) {
+        if(strategy == "One-Hot Encoding") {
+          # One-hot encoding
+          dummies <- model.matrix(~ . -1, data = df[col])
+          dummies <- as.data.frame(dummies)
+          df[[col]] <- NULL
+          df <- cbind(df, dummies)
+        } else if (strategy == "Dummy Encoding") {
+          # Dummy encoding
+          dummies <- model.matrix(~ . , data = df[col])
+          dummies <- as.data.frame(dummies[,-1, drop = FALSE])
+          df[[col]] <- NULL
+          df <- cbind(df, dummies)
+        }
+      }
     }
   }
   return(df)
@@ -97,120 +368,158 @@ handle_outliers <- function(df, outlier_strategy = "None") {
   return(df)
 }
 
-# User Interface (UI)
-ui <- fluidPage(
-  theme = shinytheme("flatly"),
-  navbarPage(
-    "Interactive Data Analysis App",
+#PCA funtion
+apply_pca <- function(df, pca_cols, n_components) {
+  if (!is.null(pca_cols) && length(pca_cols) > 0) {
+    pca_model <- prcomp(df[, pca_cols, drop = FALSE], center = TRUE, scale. = TRUE)
+    pca_data <- as.data.frame(pca_model$x[, 1:n_components])
+    colnames(pca_data) <- paste0("PC", 1:n_components)
+    df <- cbind(df, pca_data)
+  }
+  return(df)
+}
+
+ols_step_way_c <- function(lm, way, c) {
+  if (way == "for") {
+    if (c == "p-value") {
+      return(ols_step_forward_p(lm))
+    }
+    if (c == "adjust R^2") {
+      return(ols_step_forward_adj_r2(lm))
+    }
+    if (c == "AIC") {
+      return(ols_step_forward_aic(lm))
+    }
+    if (c == "SBIC") {
+      return(ols_step_forward_sbic(lm))
+    }
+  }
+  if (way == "back") {
+    if (c == "p-value") {
+      return(ols_step_backward_p(lm))
+    }
+    if (c == "adjust R^2") {
+      return(ols_step_backward_adj_r2(lm))
+    }
+    if (c == "AIC") {
+      return(ols_step_backward_aic(lm))
+    }
+    if (c == "SBIC") {
+      return(ols_step_backward_sbic(lm))
+    }
     
-    # 1. Load Datasets
-    tabPanel(
-      title = "Loading Datasets",
-      titlePanel("Loading Datasets"),
-      
-      sidebarLayout(
-        sidebarPanel(
-          fileInput("file", "Upload Dataset", accept = c(".csv", ".xlsx", ".json", ".rds")),
-          selectInput("dataset", "Or Select a Sample Dataset", choices = c("mtcars", "iris")),
-          actionButton("loadData", "Load Data")
-        ),
-        mainPanel(
-          h4("Instructions"),
-          p("Upload your dataset or select a sample dataset (e.g., mtcars or iris), then click 'Load Data'."),
-          
-          tabsetPanel(
-            tabPanel("Original Data Preview", DTOutput("originalDataTable"))
-          )
-        )
-      )
-    ),
+  }
+  if (way == "both") {
+    if (c == "p-value") {
+      return(ols_step_both_p(lm))
+    }
+    if (c == "adjust R^2") {
+      return(ols_step_both_adj_r2(lm))
+    }
+    if (c == "AIC") {
+      return(ols_step_both_aic(lm))
+    }
+    if (c == "SBIC") {
+      return(ols_step_both_sbic(lm))
+    }
+  }
+  return(NULL) 
+}
+
+
+#feature_selection function
+applyFS <- function(df, y_cols,method, lambdaL=0.01, lambdaCV=FALSE, criteriaFS="p-value"){
+  if(!is.data.frame(df)){
+    df <-as.data.frame(df)
+  }
+  
+  X <- df[, setdiff(colnames(df), y_cols)] 
+  y<- df[,y_cols]
+  lambda_val <- lambdaL
+  message<-""
+  error_check <- FALSE
+  
+  if (!all(sapply(X, is.numeric)) || !is.numeric(y)) {
+    message <- "The data contained non-numeric data. This program automatically converts the data into numeric. If you want to customize the data, please considering the function in Data Preprocess Page."
+  } else {
+    X <- as.matrix(sapply(X, as.numeric))  
+    y <- as.numeric(y)  
+  }
+  
+  
+  if (method == "LASSO") {
+    if (lambdaCV) {
+      cv_fit <- cv.glmnet(X, y, alpha = 1)
+      lambda_val <- cv_fit$lambda.min  
+    }
+    model <- glmnet(X, y, alpha = lambdaL, lambda = lambda_val)
+    selected_features <- rownames(coef(model))[coef(model)[, 1] != 0]
     
-    # 3. Data Processing
-    tabPanel(
-      title = "Data Preprocess",
-      titlePanel("Data Preprocess"),
-      
-      sidebarLayout(
-        sidebarPanel(
-          h4("Data Cleaning & Preprocessing"),
-          
-          selectInput("missingStrategy", "Missing Value Strategy", 
-                      choices = c("Remove Rows", "Impute Values")),
-          
-          checkboxInput("removeDuplicates", "Remove Duplicates", value = FALSE),
-          
-          hr(),
-          selectizeInput("scaleCols", "Columns to Scale", 
-                         choices = NULL, multiple = TRUE),
-          
-          hr(),
-          selectizeInput("encodeCols", "Categorical Columns to Encode", choices = NULL, multiple = TRUE),
-          selectInput("encodingStrategy", "Categorical Encoding Strategy",
-                      choices = c("None", "One-Hot Encoding", "Dummy Encoding")),
-          
-          hr(),
-          
-          selectInput("outlierStrategy", "Outlier Handling Strategy", 
-                      choices = c("None", "Remove Outliers", "Winsorize Outliers")),
-          hr(),
-          actionButton("processData", "Process Data", class = "btn-primary")
-        ),
-        
-        mainPanel(
-          tabsetPanel(
-            tabPanel("Data Statistics", verbatimTextOutput("dataSummary")),
-            tabPanel("Duplicates", DTOutput("dupTable")),
-            tabPanel("Distribution",
-                     selectInput("distCol", "Select Column for Impact Analysis", choices = NULL),
-                     radioButtons("distPlotType", "Plot Type", choices = c("Histogram", "Boxplot")),
-                     plotOutput("distPlot")
-                     ),
-            tabPanel("Summary", verbatimTextOutput("summaryInfo")),  
-            tabPanel("Processed Data", DTOutput("processedDataTable")),
-          )
-        )
-      )
-    ),
     
-    # 3. Feature Engineering
-    tabPanel(
-      title = "Feature Engineering",
-      titlePanel("Feature Engineering")
-      # Add UI elements for feature engineering tasks here
-      
-      
-      ),
-      
-    # 4. EDA tab
-    tabPanel(
-      title = "EDA",
-      titlePanel("EDA"),
-      # Add UI elements for exploratory data analysis here
-      
-      tabsetPanel(
-        tabPanel("Visualization",
-                 selectInput("xvar", "X-axis", choices = NULL),
-                 selectInput("yvar", "Y-axis", choices = NULL),
-                 plotOutput("plot")),
-        )
-    ),
+  } else if (method == "Elastic Net") {
+    if (lambdaCV) {
+      cv_fit <- cv.glmnet(X, y, alpha = 0.5)
+      lambda_val <- cv_fit$lambda.min
+    }
+    model <- glmnet(X, y, alpha = lambdaL, lambda = lambda_val)
+    selected_features <- rownames(coef(model))[coef(model)[, 1] != 0]
     
-    # About Page
-    tabPanel(
-      title = "About",
-      titlePanel("About"),
-      p("This Shiny app is designed for interactive data analysis."),
-      p("You can upload your dataset, clean the data, and visualize the results."),
-      p("Created with R Shiny, March 2025")
-    )
+    
+  } else if (method == "Forward Stepwise") {
+    lm_model <- lm(as.formula(paste(y_cols, "~", paste(colnames(X), collapse = " + "))), data = df)
+    model <- ols_step_way_c(lm_model,"for",criteriaFS) 
+    selected_features <-  names(coef(model$model))[-1]  
+    
+  } else if (method == "Backward Stepwise") {
+    lm_model <- lm(as.formula(paste(y_cols, "~", paste(colnames(X), collapse = " + "))), data = df)
+    model <- ols_step_way_c(lm_model,"back",criteriaFS) 
+    selected_features <- names(coef(model$model))[-1]  
+  }else if(method == "Bothway Stepwise"){
+    lm_model <- lm(as.formula(paste(y_cols, "~", paste(colnames(X), collapse = " + "))), data = df)
+    model <- ols_step_way_c(lm_model,"both",criteriaFS) 
+    selected_features <- names(coef(model$model))[-1]  
+  }
+  result<-list(method = method,
+               lambda = lambda_val,
+               selected_features = selected_features,
+               error_check = error_check,
+               model = model)
+  return(result)
+}
+
+#new Feature
+new_maker <- function(df, col1, operation, input_type, col2 = NULL, number_input = NULL, new_col_name) {
+  operation_map <- list(
+    "Addition" = `+`,
+    "Subtraction" = `-`,
+    "Multiplication" = `*`,
+    "Division" = `/`,
+    "Natural Log" = log,
+    "Power" = `^`
   )
-)
+  
+  if (input_type == "Select Column" && !is.null(col2)) {
+    df[[new_col_name]] <- operation_map[[operation]](df[[col1]], df[[col2]])
+  } else if (input_type == "Enter Number" && !is.null(number_input)) {
+    if (operation == "Natural Log") {
+      df[[new_col_name]] <- log(df[[col1]])
+    } else {
+      df[[new_col_name]] <- operation_map[[operation]](df[[col1]], number_input)
+    }
+  }
+  
+  return(df)
+}
 
 # Server Logic
 server <- function(input, output, session) {
   origionData <- reactiveVal(NULL)  
   reactiveData <- reactiveVal(NULL)  
   summaryLog <- reactiveVal("No modifications made yet.")
+  PCA_transformed_Data<- reactiveVal(NULL)  
+  FS_result<- reactiveVal(NULL)  
+  NF_Data <- reactiveVal(data.frame())  
+  new_feature_name <- reactiveVal(NULL)  
   
   # Upload & Read Data
   observeEvent(input$loadData, {
@@ -239,6 +548,9 @@ server <- function(input, output, session) {
       updateSelectInput(session, "xvar", choices = names(df)) 
       updateSelectInput(session, "yvar", choices = names(df))
       
+      updateSelectizeInput(session, "manualNumeric", choices = names(df), server = TRUE)
+      updateSelectizeInput(session, "manualCategorical", choices = names(df), server = TRUE)
+      
       numeric_cols <- names(df)[sapply(df, is.numeric)]
       updateSelectInput(session, "distCol", choices = numeric_cols)
       updateSelectizeInput(session, "scaleCols", choices = numeric_cols, server = TRUE)
@@ -262,21 +574,35 @@ server <- function(input, output, session) {
         summaryLog(paste(summaryLog(), "No duplicates found."))
       }
     }
+    # 2. let user manually select columns to convert to corresponding type
+    if (!is.null(input$manualNumeric) && length(input$manualNumeric) > 0) {
+      for(col in input$manualNumeric) {
+        df[[col]] <- as.numeric(as.character(df[[col]]))
+      }
+      summaryLog(paste(summaryLog(), "Manually converted to numeric:", paste(input$manualNumeric, collapse = ", ")))
+    }
     
-    # 2. Scale if user selected columns
+    if (!is.null(input$manualCategorical) && length(input$manualCategorical) > 0) {
+      for(col in input$manualCategorical) {
+        df[[col]] <- as.factor(as.character(df[[col]]))
+      }
+      summaryLog(paste(summaryLog(), "Manually converted to factor:", paste(input$manualCategorical, collapse = ", ")))
+    }
+    
+    # 3. Scale if user selected columns
     if (!is.null(input$scaleCols) && length(input$scaleCols) > 0) {
       df <- standardize(df, input$scaleCols)
       summaryLog(paste(summaryLog(), "Scaled columns:", paste(input$scaleCols, collapse = ", ")))
     }
     
-    # 3. Encode categorical cols if user selected cols & strategy != "None"
+    # 4. Encode categorical cols if user selected cols & strategy != "None"
     if (!is.null(input$encodeCols) && length(input$encodeCols) > 0 && input$encodingStrategy != "None") {
       df <- encode_categorical(df, input$encodeCols, strategy = input$encodingStrategy)
       summaryLog(paste(summaryLog(), "Encoded columns:", paste(input$encodeCols, collapse = ", "),
                        "Strategy:", input$encodingStrategy))
     }
     
-    # 4. Handle Outliers
+    # 5. Handle Outliers
     if (input$outlierStrategy != "None") {
       df <- handle_outliers(df, 
                             outlier_strategy = input$outlierStrategy)
@@ -286,6 +612,7 @@ server <- function(input, output, session) {
     # Update reactiveData
     reactiveData(df)
   })
+  
   
   output$originalDataTable <- renderDT({
     req(origionData())
@@ -349,6 +676,274 @@ server <- function(input, output, session) {
         labs(title = paste("Boxplot Comparison for", col),
              x = "Dataset", y = col)
     }
+  })
+  
+  #PCA 
+  observe({
+    df <- reactiveData()
+    if (!is.null(df)) {
+      numeric_cols <- names(df)[sapply(df, is.numeric)]
+      updateSelectizeInput(session, "pcaCols", choices = numeric_cols, server = TRUE)
+    }
+  })
+  
+  
+  observeEvent(input$applyPCA, {
+    req(reactiveData(), input$pcaCols, input$numPCA)
+    df <- reactiveData()
+    df <- apply_pca(df, input$pcaCols, input$numPCA)
+    PCA_transformed_Data(df)
+  })
+  
+  
+  output$pcaSummary <- renderPrint({
+    req(input$pcaCols)
+    df <- reactiveData()
+    pca_model <- prcomp(df[, input$pcaCols, drop = FALSE], center = TRUE, scale. = TRUE)
+    summary(pca_model)
+  })
+  
+  output$pcaDataTable <- renderDT({
+    req(PCA_transformed_Data())
+    datatable(PCA_transformed_Data(),options = list(scrollX = TRUE))
+  })
+  
+  observeEvent(input$savePCA, {
+    df<- PCA_transformed_Data()
+    reactiveData(df)
+  })
+  
+  #feature selection
+  observeEvent(input$applyFS, {
+    req(reactiveData(), input$FSyCols, input$FSCols)
+    df <- reactiveData()
+    result<- applyFS(df, input$FSyCols, input$FSCols,input$lambdaL,input$lambdaCV,input$criteriaFS)
+    FS_result(result)
+  })
+  
+  observe({
+    df <- reactiveData()
+    if (!is.null(df)) {
+      updateSelectizeInput(session, "FSyCols", choices = colnames(df), server = TRUE)
+    }
+  })
+  
+  # Output feature selection 
+  output$FSSummary <- renderPrint({
+    result <- FS_result() 
+    req(result)
+    if(result$error_check){
+      cat("Error Message:", result$message, "\n") 
+    }  
+    cat("Feature Selection Method:", result$method, "\n")    
+    if (result$method %in% c("LASSO", "Elastic Net")) {
+      cat("Lambda:", result$lambda, "\n")
+    }    
+    cat("Selected Features:", 
+        if (length(result$selected_features) > 0) {
+          paste(result$selected_features, collapse = ", ")
+        } else {
+          "No features selected."
+        }, "\n"
+    )
+    
+    if(input$detailFS){
+      cat("\n---------- Model Detail ----------\n")
+      if (result$method %in% c("LASSO", "Elastic Net")){
+        cat("\nCoefficients at Best Lambda:\n") 
+        print(coef(result$model, s = "lambda.min"))
+        cat("\nDeviance Ratio:\n")
+        print(result$model$dev.ratio)      			
+      }
+      else{
+        print(result$model)
+      }
+    }
+    
+  })
+  
+  #new feature 
+  output$col1_ui <- renderUI({
+    data <- reactiveData()
+    req(data)
+    selectInput("col1", "Select First Column:", choices = names( data))
+  })
+  
+  output$col2_or_number_ui <- renderUI({
+    data <- reactiveData()
+    req(data)
+    if (input$input_type == "Select Column") {
+      selectInput("col2", "Select Second Column:", choices = names( data))
+    } else {
+      numericInput("number_input", "Enter Number:", value = 1)
+    }
+  })
+  
+  observeEvent(input$applyOP, {
+    df <- reactiveData()  
+    
+    updated_df <- new_maker(
+      df = df,
+      col1 = input$col1,
+      operation = input$opF,
+      input_type = input$input_type,
+      col2 = input$col2,
+      number_input = input$number_input,
+      new_col_name = input$NewF
+    )
+    
+    NF_Data(updated_df)  
+    new_feature_name(input$NewF)
+  })
+  
+  
+  observeEvent(input$saveNF,{
+    req(NF_Data())
+    reactiveData(NF_Data())
+  })
+  
+  output$newSummary <- renderPrint({
+    req(NF_Data(), new_feature_name())  
+    df <- NF_Data()
+    colname <- new_feature_name()
+    cat("New Feature Name:",colname,"\n")
+    cat("Distribution:","\n")
+    print(summary(df[[colname]]))
+  })
+  
+  
+  observe({
+    df <- reactiveData()
+    if (!is.null(df)) {
+      updateSelectInput(session, "statVar", choices = names(df), selected = names(df)[1])
+    }
+  })
+  
+  output$statSummary <- renderPrint({
+    df <- reactiveData()
+    req(df, input$statVar)
+    
+    summary(df[[input$statVar]])
+  })
+  
+  # Render Histogram
+  output$histPlot <- renderPlot({
+    df <- reactiveData()
+    req(df, input$statVar, input$histogram)
+    
+    ggplot(df, aes_string(x = input$statVar)) +
+      geom_histogram(binwidth = input$binWidth, fill = "skyblue", color = "black") +
+      theme_minimal() +
+      labs(title = "Histogram", x = input$statVar, y = "Frequency")
+  })
+  
+  # Render Boxplot
+  output$boxPlot <- renderPlot({
+    df <- reactiveData()
+    req(df, input$statVar, input$boxplot)
+    
+    is_vertical <- input$verticalPlot
+    
+    if (!is_vertical) {
+      p <- ggplot(df, aes_string(y = input$statVar, x = "1")) +
+        geom_boxplot(fill = "skyblue", color = "black") +
+        theme_minimal() +
+        labs(title = "Boxplot", y = input$statVar, x = "Values") +
+        theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+    } else {
+      p <- ggplot(df, aes_string(x = input$statVar, y = "1")) +
+        geom_boxplot(fill = "skyblue", color = "black") +
+        theme_minimal() +
+        labs(title = "Boxplot", x = input$statVar, y = "Values") +
+        theme(axis.text.y = element_blank(), axis.ticks.y = element_blank())
+    }
+    
+    p
+  })
+  
+  # Render Dotplot
+  output$dotPlot <- renderPlot({
+    df <- reactiveData()
+    req(df, input$statVar, input$dotplot)
+    
+    ggplot(df, aes_string(x = input$statVar)) +
+      geom_dotplot(binwidth = 0.1, dotsize = 0.5, fill = "skyblue") +
+      theme_minimal() +
+      labs(title = "Dotplot", x = input$statVar, y = "Count")
+  })
+  
+  observe({
+    df <- reactiveData()
+    req(df)
+    
+    updateSelectInput(session, "xVar", choices = names(df), selected = names(df)[1])
+    updateSelectInput(session, "yVar", choices = names(df), selected = names(df)[2])
+  })
+  
+  # Render Scatter Plot
+  output$scatterPlotOutput <- renderPlot({
+    df <- reactiveData()
+    req(df, input$xVar, input$yVar, input$scatterPlot)
+    
+    p <- ggplot(df, aes_string(x = input$xVar, y = input$yVar)) +
+      geom_point(color = "blue") +
+      theme_minimal() +
+      labs(title = "Scatter Plot", x = input$xVar, y = input$yVar)
+    
+    # Add smooth line if selected
+    if (input$smooth) {
+      p <- p + geom_smooth(method = "loess", color = "red", se = FALSE)
+    }
+    
+    p
+  })
+  
+  output$linePlotOutput <- renderPlot({
+    df <- reactiveData()
+    req(df, input$xVar, input$yVar, input$linePlot)
+    
+    p <- ggplot(df, aes_string(x = input$xVar, y = input$yVar)) +
+      geom_line(color = "black") +
+      theme_minimal() +
+      labs(title = "Line Plot", x = input$xVar, y = input$yVar)
+    
+    # Add smooth line if selected
+    if (input$lineSmooth) {
+      p <- p + geom_smooth(method = "loess", color = "blue", se = FALSE)
+    }
+    
+    p
+  })
+  
+  # Render Correlation Heatmap
+  output$heatmapOutput <- renderPlot({
+    df <- reactiveData()
+    req(df)
+    
+    # Select only numeric columns
+    numeric_df <- df %>% select(where(is.numeric))
+    
+    # Check if there are numeric variables to compute correlation
+    if (ncol(numeric_df) < 2) {
+      showNotification("Not enough numeric variables for correlation heatmap.", type = "warning")
+      return(NULL)
+    }
+    
+    # Compute correlation matrix
+    cor_matrix <- cor(numeric_df, use = "pairwise.complete.obs")
+    
+    # Convert correlation matrix into long format for ggplot
+    cor_long <- reshape2::melt(cor_matrix)
+    
+    # Create heatmap using ggplot2
+    ggplot(cor_long, aes(Var1, Var2, fill = value)) +
+      geom_tile(color = "white") +
+      scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                           midpoint = 0, limit = c(-1,1), space = "Lab", 
+                           name="Correlation") +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+      labs(title = "Correlation Heatmap", x = "", y = "")
   })
   
 }
