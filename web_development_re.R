@@ -111,20 +111,18 @@ ui <- fluidPage(
                      numericInput("lambdaL", "Value of Lambda for Regularization", value = 0.01, min = 0, max = 100, step = 0.01),
                      checkboxInput("lambdaCV", "Cross Validation for Select Lambda", value = FALSE),
                      selectizeInput("criteriaFS", "Selection Criteria for Stepwise", 
-                                    choices = c("p-value","adjust R^2", "AIC","SBIC")),
-                     checkboxInput("detailFS", "Show the more detail", value = FALSE),
+                                    choices = c("p-value","adjust R^2", "AIC")),
+                     checkboxInput("detailFS", "Show the detail of Model", value = FALSE),
                      actionButton("applyFS", "Apply Feature Selection", class = "btn-primary")
             ),
             #New Feature
             tabPanel("Making New Feature",
                      h4("Making New Feature"),
-                     uiOutput("col1_ui"),
-                     radioButtons("input_type", "Choose Input Type:", choices = c("Select Column", "Enter Number"), selected = "Select Column"),
-      				uiOutput("col2_or_number_ui"),
-                     textInput("NewF", "New Feature Name",value = "New Feature"),
-                     selectizeInput("opF", "Operation Choice", choices = c("Addition","Subtraction","Multiplication","Division","Natural Log","Power")),
-                     actionButton("applyOP", "Apply Operation", class = "btn-primary"),
-                     actionButton("saveNF", "Save the New Feature", class = "btn-primary")
+                     selectizeInput("oldF1", "Select the first feature you want to operate", choices = NULL, multiple = FALSE),
+                     selectizeInput("oldF2", "Select the second feature you want to operate (If not, leave it blank.)", choices = NULL, multiple = FALSE),
+                     selectizeInput("NewF", "New Feature Name",choices = NULL),
+                     selectizeInput("opF", "Operation Choice", choices = c("Addition","Subtraction","Multiplication","Division","Natural Log")),
+                     actionButton("applyOP", "Apply Operation", class = "btn-primary")
             )
           ) 
         ),
@@ -384,9 +382,6 @@ ols_step_way_c <- function(lm, way, c) {
     if (c == "AIC") {
       return(ols_step_forward_aic(lm))
     }
-    if (c == "SBIC") {
-      return(ols_step_forward_sbic(lm))
-    }
   }
   if (way == "back") {
     if (c == "p-value") {
@@ -398,10 +393,6 @@ ols_step_way_c <- function(lm, way, c) {
     if (c == "AIC") {
       return(ols_step_backward_aic(lm))
     }
-     if (c == "SBIC") {
-      return(ols_step_backward_sbic(lm))
-    }
-
   }
   if (way == "both") {
     if (c == "p-value") {
@@ -412,9 +403,6 @@ ols_step_way_c <- function(lm, way, c) {
     }
     if (c == "AIC") {
       return(ols_step_both_aic(lm))
-    }
-     if (c == "SBIC") {
-      return(ols_step_both_sbic(lm))
     }
   }
   return(NULL) 
@@ -481,30 +469,6 @@ applyFS <- function(df, y_cols,method, lambdaL=0.01, lambdaCV=FALSE, criteriaFS=
   return(result)
 }
 
-#new Feature
-new_maker <- function(df, col1, operation, input_type, col2 = NULL, number_input = NULL, new_col_name) {
-  operation_map <- list(
-    "Addition" = `+`,
-    "Subtraction" = `-`,
-    "Multiplication" = `*`,
-    "Division" = `/`,
-    "Natural Log" = log,
-    "Power" = `^`
-  )
-
-  if (input_type == "Select Column" && !is.null(col2)) {
-    df[[new_col_name]] <- operation_map[[operation]](df[[col1]], df[[col2]])
-  } else if (input_type == "Enter Number" && !is.null(number_input)) {
-    if (operation == "Natural Log") {
-      df[[new_col_name]] <- log(df[[col1]])
-    } else {
-      df[[new_col_name]] <- operation_map[[operation]](df[[col1]], number_input)
-    }
-  }
-  
-  return(df)
-}
-
 # Server Logic
 server <- function(input, output, session) {
   origionData <- reactiveVal(NULL)  
@@ -512,9 +476,7 @@ server <- function(input, output, session) {
   summaryLog <- reactiveVal("No modifications made yet.")
   PCA_transformed_Data<- reactiveVal(NULL)  
   FS_result<- reactiveVal(NULL)  
-NF_Data <- reactiveVal(data.frame())  
- new_feature_name <- reactiveVal(NULL)  
-
+  
   # Upload & Read Data
   observeEvent(input$loadData, {
     df <- if (!is.null(input$file)) {
@@ -738,56 +700,6 @@ NF_Data <- reactiveVal(data.frame())
     }
     
   })
-  
-  #new feature 
- output$col1_ui <- renderUI({
- 	data <- reactiveData()
-    req(data)
-    selectInput("col1", "Select First Column:", choices = names( data))
-  })
-  
-  output$col2_or_number_ui <- renderUI({
-  	data <- reactiveData()
-    req(data)
-    if (input$input_type == "Select Column") {
-      selectInput("col2", "Select Second Column:", choices = names( data))
-    } else {
-      numericInput("number_input", "Enter Number:", value = 1)
-    }
-  })
-
-observeEvent(input$applyOP, {
-  df <- reactiveData()  
-  
-  updated_df <- new_maker(
-    df = df,
-    col1 = input$col1,
-    operation = input$opF,
-    input_type = input$input_type,
-    col2 = input$col2,
-    number_input = input$number_input,
-    new_col_name = input$NewF
-  )
-
-  NF_Data(updated_df)  
-  new_feature_name(input$NewF)
-})
-
-
-observeEvent(input$saveNF,{
-	req(NF_Data())
-	reactiveData(NF_Data())
-	})
-
-output$newSummary <- renderPrint({
-  req(NF_Data(), new_feature_name())  
-  df <- NF_Data()
-  colname <- new_feature_name()
-  cat("New Feature Name:",colname,"\n")
-  cat("Distribution:","\n")
-  print(summary(df[[colname]]))
-})
-
   
   observe({
     df <- reactiveData()
