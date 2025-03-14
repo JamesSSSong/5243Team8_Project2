@@ -499,11 +499,12 @@ ui <- fluidPage(
       hr(),
       
       h3("Exploratory Data Analysis (EDA)"),
-      p("The EDA module helps users explore and visualize datasets interactively. It consists of three sections:"),
+      p("The EDA module helps users explore and visualize datasets interactively. It consists of four sections:"),
       tags$ul(
         tags$li(strong("Univariate Analysis"), " – Analyze individual variables."),
         tags$li(strong("Bivariate Analysis"), " – Analyze relationships between two variables."),
-        tags$li(strong("Heat Map Analysis"), " – Visualize correlations between numerical variables.")
+        tags$li(strong("Heat Map Analysis"), " – Visualize correlations between numerical variables."),
+        tags$li(strong("Statistical Test"), " – Perform hypothesis testing on numerical and categorical data.")
       ),
       
       h3("1️⃣ Univariate Analysis"),
@@ -526,6 +527,14 @@ ui <- fluidPage(
       tags$ul(
         tags$li("Color-coded matrix (darker = stronger correlation)."),
         tags$li("Helps identify patterns and dependencies.")
+      ),
+      
+      h3("4️⃣ Statistical Test"),
+      p("The Statistical Test module allows users to perform hypothesis testing and assess relationships between variables:"),
+      tags$ul(
+        tags$li(strong("Numerical vs. Numerical Test:"), "Choose between Pearson and Kendall correlation to measure the strength and direction of the relationship between two numerical variables."),
+        tags$li(strong("Categorical vs. Categorical Test:"), "Use the Chi-Square test to evaluate the association between two categorical variables."),
+        tags$li(strong("Numerical vs. Categorical Test:"), "Compare means between groups using t-tests (for two groups) or ANOVA (for multiple groups) to assess differences between numerical and categorical variables.")
       ),
       
       hr(),
