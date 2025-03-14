@@ -84,7 +84,7 @@ ui <- fluidPage(
                      radioButtons("distPlotType", "Plot Type", choices = c("Histogram", "Boxplot")),
                      plotOutput("distPlot")
             ),
-            tabPanel("Summary", verbatimTextOutput("summaryInfo")),  
+            tabPanel("Historical Activities", verbatimTextOutput("summaryInfo")),  
             tabPanel("Processed Data", DTOutput("processedDataTable"))
           )
         )
@@ -102,7 +102,7 @@ ui <- fluidPage(
           tabsetPanel(
             # PCA
             tabPanel("PCA",
-                     h4("PCA (Principal Component Analysis"),
+                     h4("PCA (Principal Component Analysis)"),
                      selectizeInput("pcaCols", "Select Columns for PCA", choices = NULL, multiple = TRUE),
                      numericInput("numPCA", "Number of Principal Components", value = 2, min = 1, max = 10, step = 1),
                      actionButton("applyPCA", "Apply PCA", class = "btn-primary"),
@@ -159,7 +159,8 @@ ui <- fluidPage(
           title = "Univariate Analysis",
           sidebarLayout(
             sidebarPanel(
-              selectInput("statVar", "Select Variable for Analysis:",
+              h3("Numerical Analysis"),
+              selectInput("statVar", "Select Numerical Variable for Analysis:",
                           choices = NULL, selected = NULL),
               
               # Horizontal layout for Plot Type Selection
@@ -172,10 +173,8 @@ ui <- fluidPage(
               # Histogram Options
               conditionalPanel(
                 condition = "input.histogram == true",
-                
                 sliderInput("binWidth", "Select Binwidth For Histogram:",
                             min = 5, max = 150, value = 30),
-                
                 checkboxGroupInput("histOptions", "Histogram Options:",
                                    choices = c("Enter Binwidth", 
                                                "Select Starting Bin", 
@@ -197,6 +196,25 @@ ui <- fluidPage(
                 condition = "input.boxplot == true",
                 h4("Boxplot Options:"),
                 checkboxInput("verticalPlot", "Vertical Plot", value = FALSE)
+              ),
+              
+              br(), br(), br(), br(), hr(), br(), br(), br(), br(),
+              
+              h3("Categorical Analysis"),
+              selectInput("catVar", "Select Categorical Variable for Analysis:",
+                          choices = NULL, selected = NULL),
+              
+              # Horizontal layout for Bar Chart & Pie Chart Selection
+              fluidRow(
+                column(6, checkboxInput("barChart", "Bar Chart")),
+                column(6, checkboxInput("pieChart", "Pie Chart"))
+              ),
+              
+              # Bar Chart Options (Only if Bar Chart is selected)
+              conditionalPanel(
+                condition = "input.barChart == true",
+                h4("Bar Chart Options:"),
+                checkboxInput("displayPercent", "Display Percent", value = FALSE)
               )
             ),
             
@@ -204,10 +222,14 @@ ui <- fluidPage(
               h4("Statistical Summary"),
               verbatimTextOutput("statSummary"),
               
-              h4("Distribution Plots"),
-              plotOutput("histPlot", height = "300px"),
-              plotOutput("boxPlot", height = "300px"),
-              plotOutput("dotPlot", height = "300px")
+              h4("Numerical Data Plots"),
+              plotOutput("histPlot", height = "250px"),
+              plotOutput("boxPlot", height = "250px"),
+              plotOutput("dotPlot", height = "250px"),
+              
+              h4("Categorical Data Plots"),
+              plotOutput("barChartPlot", height = "300px"),
+              plotOutput("pieChartPlot", height = "300px")
             )
           )
         ),
@@ -217,36 +239,81 @@ ui <- fluidPage(
           title = "Bivariate Analysis",
           sidebarLayout(
             sidebarPanel(
-              # Select two variables for analysis in the same row
+              h3("Numerical Variable Analysis"),
+              
+              # Select two numerical variables in the same row
               fluidRow(
-                column(6, selectInput("xVar", "X-Variable 1:", choices = NULL, selected = NULL)),
-                column(6, selectInput("yVar", "Y-Variable 2:", choices = NULL, selected = NULL))
+                column(6, selectInput("xNumVar", "Select X (Numerical):", choices = NULL, selected = NULL)),
+                column(6, selectInput("yNumVar", "Select Y (Numerical):", choices = NULL, selected = NULL))
               ),
               
-              # Checkboxes for plot selection
+              # Checkboxes for numerical plot selection
               fluidRow(
                 column(6, checkboxInput("scatterPlot", "Scatter Plot")),
                 column(6, checkboxInput("linePlot", "Line Plot"))
               ),
               
-              # Smooth option appears only if Scatter Plot is selected
+              # Scatter Plot Options
               conditionalPanel(
                 condition = "input.scatterPlot == true",
-                h4("Scatter Plot Option"),
-                checkboxInput("smooth", "Smooth")
+                h4("Scatter Plot Options"),
+                checkboxInput("smooth", "Add Smooth Line")
               ),
               
+              # Line Plot Options
               conditionalPanel(
                 condition = "input.linePlot == true",
-                h4("Line Plot Option"),
-                checkboxInput("lineSmooth", "Smooth")
+                h4("Line Plot Options"),
+                checkboxInput("lineSmooth", "Add Smooth Line")
               ),
+              
+              # Space before categorical section
+              br(), br(), hr(), br(),
+              
+              h3("Categorical Variable Analysis"),
+              
+              # Select two categorical variables
+              fluidRow(
+                column(6, selectInput("xCatVar", "Select X (Categorical):", choices = NULL, selected = NULL)),
+                column(6, selectInput("yCatVar", "Select Y (Categorical):", choices = NULL, selected = NULL))
+              ),
+              
+              # Select categorical plot type
+              selectInput("catPlotType", "Select Categorical Plot Type:", 
+                          choices = c("Grouped Bar Chart", "Stacked Bar Chart", "100% Stacked Bar")),
+              
+              # Space before categorical-numerical section
+              br(), br(), hr(), br(),
+              
+              h3("Categorical-Numerical Variable Analysis"),
+              
+              # Select numerical and categorical variable
+              fluidRow(
+                column(6, selectInput("numVar", "Select Numerical Variable:", choices = NULL, selected = NULL)),
+                column(6, selectInput("catVarCN", "Select Categorical Variable:", choices = NULL, selected = NULL))
+              ),
+              
+              # Select plot type for categorical-numerical analysis
+              selectInput("catNumPlotType", "Select Plot Type:", 
+                          choices = c("Boxplot", "Violin Plot"))
             ),
             
             mainPanel(
-              h4("Visualization"),
-              plotOutput("scatterPlotOutput", height = "350px"),
-              plotOutput("linePlotOutput", height = "350px")
+              h4("Numerical Variable Visualization"),
+              plotOutput("scatterPlotOutput", height = "300px"),
+              plotOutput("linePlotOutput", height = "300px"),
+              
+              # Space before categorical plots
+              br(), br(), hr(), br(),
+              
+              h4("Categorical Variable Visualization"),
+              plotOutput("catPlotOutput", height = "300px"),
+              
+              # Space before categorical-numerical plots
+              br(), br(), hr(), br(),
+              
+              h4("Categorical-Numerical Variable Visualization"),
+              plotOutput("catNumPlotOutput", height = "300px")
             )
           )
         ),
@@ -271,10 +338,148 @@ ui <- fluidPage(
     # About Page
     tabPanel(
       title = "About",
-      titlePanel("About"),
-      p("This Shiny app is designed for interactive data analysis."),
-      p("You can upload your dataset, clean the data, and visualize the results."),
-      p("Created with R Shiny, March 2025")
+      titlePanel("About This Project"),
+      h3("How to Use This App?"),
+      tags$ol(
+        tags$li("Upload a dataset or use a provided sample dataset."),
+        tags$li("Navigate to the 'Data Preprocess' tab."),
+        tags$li("Clean and transform your data by selecting the appropriate variables and strategies."),
+        tags$li("Navigate to the 'Feature Engineering' tab."),
+        tags$li("Choose preferred method."),
+        tags$li("Specify columns, parameters, or operations as needed."),
+        tags$li("Apply and review the results."),
+        tags$li("Navigate to the 'EDA' tab."),
+        tags$li("Choose the appropriate analysis type."),
+        tags$li("Select variables and visualization options."),
+        tags$li("Analyze and interpret insights dynamically.")
+      ),
+      hr(),
+      
+      h3("Key Features"),
+      tags$ul(
+        tags$li("🔹 Easy data visualization with interactive graphs."),
+        tags$li("🔹 Dynamic selection of variables and plot types."),
+        tags$li("🔹 Supports numerical, categorical, and mixed data."),
+        tags$li("🔹 Provides different feature engineering techniques."),
+        tags$li("🔹 Correlation heatmaps for in-depth analysis.")
+      ),
+      
+      h3("Data Cleaning and Preprocessing"),
+      p("The Data Cleaning and Preprocessing modules allows users to initially clean, transform, and enrich raw data using the following functions:"),
+      tags$ul(
+        tags$li(strong("Missingness and Duplication"), " – Handle missing and duplicated values."),
+        tags$li(strong("Data Type Conversion"), " – Convert columns to appropriate data type."),
+        tags$li(strong("Transformation"), " – Standardize numeric columns, and encode categorical columns."),
+        tags$li(strong("Outliers"), " – Detect and handle outliers.")
+      ),
+      
+      h3("1️⃣ Missingness and Duplication"),
+      tags$ul(
+        tags$li("Data statistics are presented under 'Data Statistics'."),
+        tags$li("The system automatically identifies missing values."),
+        tags$li("Select strategy to deal with null values: remove or impute with median for numeric columns or mode for categorical columns."),
+        tags$li("The system will identify duplicated values, see 'Duplicates'."),
+        tags$li("Remove duplicated values by clicking 'Remove Duplicates'.")
+      ),
+      
+      h3("2️⃣ Data Type Conversion"),
+      p("This function allows users to manually select columns to convert."),
+      tags$ul(
+        tags$li("The system can automatically recognize data type of every columns."),
+        tags$li("For columns that are incorrectly recognized, user can select column(s) to convert to appropriate types.")
+      ),
+      
+      h3("3️⃣ Transformation"),
+      p("This function perform necessary transformations to numeric and categorical columns."),
+      tags$ul(
+        tags$li("Select numeric column(s) to standardize."),
+        tags$li("Select categorical column(s) to encode through One-Hot encoding or Dummy encoding."),
+        tags$li("Click 'Distribution' to  view the effect of transformations.")
+      ),
+      
+      h3("4️⃣ Outliers"),
+      p("This function allows user to handle outliers"),
+      tags$ul(
+        tags$li("The system can automatically detect outliers using an interquartile range (IQR)."),
+        tags$li("Select strategy to handle outliers."),
+        tags$li("Click 'Processed Data' to  view the current dataset.")
+      ),
+      hr(),
+      
+      h3("Feature Engineering"),
+      p("The Feature Engineering module allows users to modify and enhance dataset features. It consists of three main functions:"),
+      
+      tags$ul(
+        tags$li(strong("Principal Component Analysis (PCA)"), " – Reduce dimensionality and extract important components."),
+        tags$li(strong("Feature Selection"), " – Identify the most relevant features for modeling."),
+        tags$li(strong("Custom Feature Creation"), " – Generate new features based on mathematical operations.")
+      ),
+      
+      h3("1️⃣ Principal Component Analysis (PCA)"),
+      p("PCA helps users transform features into principal components for dimensionality reduction."),
+      tags$ul(
+        tags$li("Select features for PCA transformation."),
+        tags$li("Choose the number of principal components."),
+        tags$li("Remove incorrect selections using the Backspace key."),
+        tags$li("The summary of principal components appears in the 'PCA Summary' subpanel."),
+        tags$li("Click 'Apply PCA' to transform data and view results in 'PCA Transformed Data'."),
+        tags$li("If satisfied, save the transformed data for further analysis in the EDA section by clicking 'Save PCA Result' .")
+      ),
+      
+      h3("2️⃣ Feature Selection"),
+      p("This function helps users select the most important features for modeling."),
+      tags$ul(
+        tags$li("Select the dependent variable and feature selection method."),
+        tags$li("Set relevant parameters (irrelevant ones can be ignored)."),
+        tags$li("If using regularization, enable cross-validation via 'Cross Validation for Select Lambda'."),
+        tags$li("View selected features in 'Feature Selection Summary'."),
+        tags$li("For detailed insights, enable 'Show More Detail'.")
+      ),
+      
+      h3("3️⃣ Custom Feature Creation"),
+      p("Users can create new features using mathematical operations."),
+      tags$ul(
+        tags$li("Choose 'Selected Column' for operations on two features or 'Enter Number' for single feature operations."),
+        tags$li("Operations include Addition, Subtraction, Multiplication, Division, and Logarithm."),
+        tags$li("For division, the first feature is the dividend, the second is the divisor. The same goes for subtraction."),
+        tags$li("For the natural logarithm option, only the first feature will take effect. "),
+        tags$li("Results appear in 'New Feature Summary' after clicking 'Apply Operation'."),
+        tags$li("To save the new feature, click 'Save the New Feature' for further analysis in the EDA section.")
+      ),
+      hr(),
+      
+      h3("Exploratory Data Analysis (EDA)"),
+      p("The EDA module helps users explore and visualize datasets interactively. It consists of three sections:"),
+      tags$ul(
+        tags$li(strong("Univariate Analysis"), " – Analyze individual variables."),
+        tags$li(strong("Bivariate Analysis"), " – Analyze relationships between two variables."),
+        tags$li(strong("Heat Map Analysis"), " – Visualize correlations between numerical variables.")
+      ),
+      
+      h3("1️⃣ Univariate Analysis"),
+      p("Examine the distribution of a single variable:"),
+      tags$ul(
+        tags$li(strong("Numerical Analysis:"), "Histogram (custom binwidth, starting bin, percent display), Boxplot (horizontal/vertical), Dotplot."),
+        tags$li(strong("Categorical Analysis:"), "Bar Chart (option to display percentages), Pie Chart.")
+      ),
+      
+      h3("2️⃣ Bivariate Analysis"),
+      p("Analyze relationships between two variables:"),
+      tags$ul(
+        tags$li(strong("Numerical vs. Numerical:"), "Scatter Plot (optional trend line), Line Plot (optional smoothing)."),
+        tags$li(strong("Categorical vs. Categorical:"), "Grouped Bar Chart, Stacked Bar Chart, 100% Stacked Bar Chart."),
+        tags$li(strong("Numerical vs. Categorical:"), "Boxplot, Violin Plot.")
+      ),
+      
+      h3("3️⃣ Heat Map Analysis"),
+      p("Displays correlations between numerical variables:"),
+      tags$ul(
+        tags$li("Color-coded matrix (darker = stronger correlation)."),
+        tags$li("Helps identify patterns and dependencies.")
+      ),
+      
+      hr(),
+      p("Created with R Shiny, March 2025.")
     )
   )
 )
@@ -507,7 +712,6 @@ new_maker <- function(df, col1, operation, input_type, col2 = NULL, number_input
       df[[new_col_name]] <- operation_map[[operation]](df[[col1]], number_input)
     }
   }
-  
   return(df)
 }
 
@@ -515,7 +719,7 @@ new_maker <- function(df, col1, operation, input_type, col2 = NULL, number_input
 server <- function(input, output, session) {
   origionData <- reactiveVal(NULL)  
   reactiveData <- reactiveVal(NULL)  
-  summaryLog <- reactiveVal("No modifications made yet.")
+  summaryLog <- reactiveVal(c("Preprocessing activities:"))
   PCA_transformed_Data<- reactiveVal(NULL)  
   FS_result<- reactiveVal(NULL)  
   NF_Data <- reactiveVal(data.frame())  
@@ -539,7 +743,7 @@ server <- function(input, output, session) {
     
     origionData(df)
     reactiveData(df)
-    summaryLog("Data loaded successfully.")
+    summaryLog(c(summaryLog(), "Data loaded successfully."))
   })
   
   observe({
@@ -569,9 +773,9 @@ server <- function(input, output, session) {
       num_duplicates <- sum(duplicated(df))
       if (num_duplicates > 0) {
         df <- unique(df)
-        summaryLog(paste(summaryLog(), "Removed Duplicates:", num_duplicates))
+        summaryLog(c(summaryLog(), paste("Removed Duplicates:", num_duplicates)))
       } else {
-        summaryLog(paste(summaryLog(), "No duplicates found."))
+        summaryLog(c(summaryLog(), "No duplicates found."))
       }
     }
     # 2. let user manually select columns to convert to corresponding type
@@ -579,34 +783,40 @@ server <- function(input, output, session) {
       for(col in input$manualNumeric) {
         df[[col]] <- as.numeric(as.character(df[[col]]))
       }
-      summaryLog(paste(summaryLog(), "Manually converted to numeric:", paste(input$manualNumeric, collapse = ", ")))
+      summaryLog(c(summaryLog(), 
+                   paste("Manually converted to numeric:", 
+                         paste(input$manualNumeric, collapse = ", "))))
     }
     
     if (!is.null(input$manualCategorical) && length(input$manualCategorical) > 0) {
       for(col in input$manualCategorical) {
         df[[col]] <- as.factor(as.character(df[[col]]))
       }
-      summaryLog(paste(summaryLog(), "Manually converted to factor:", paste(input$manualCategorical, collapse = ", ")))
+      summaryLog(c(summaryLog(), 
+                   paste("Manually converted to categorical:", 
+                         paste(input$manualCategorical, collapse = ", "))))
     }
     
     # 3. Scale if user selected columns
     if (!is.null(input$scaleCols) && length(input$scaleCols) > 0) {
       df <- standardize(df, input$scaleCols)
-      summaryLog(paste(summaryLog(), "Scaled columns:", paste(input$scaleCols, collapse = ", ")))
+      summaryLog(c(summaryLog(), 
+                   paste("Scaled columns:", paste(input$scaleCols, collapse = ", "))))
     }
     
     # 4. Encode categorical cols if user selected cols & strategy != "None"
     if (!is.null(input$encodeCols) && length(input$encodeCols) > 0 && input$encodingStrategy != "None") {
       df <- encode_categorical(df, input$encodeCols, strategy = input$encodingStrategy)
-      summaryLog(paste(summaryLog(), "Encoded columns:", paste(input$encodeCols, collapse = ", "),
-                       "Strategy:", input$encodingStrategy))
+      summaryLog(c(summaryLog(), 
+                   paste("Encoded columns:", paste(input$encodeCols, collapse = ", "),
+                         "Strategy:", input$encodingStrategy)))
     }
     
     # 5. Handle Outliers
     if (input$outlierStrategy != "None") {
       df <- handle_outliers(df, 
                             outlier_strategy = input$outlierStrategy)
-      summaryLog(paste(summaryLog(), "Outlier Handling:", input$outlierStrategy))
+      summaryLog(c(summaryLog(), paste("Outlier Handling:", input$outlierStrategy)))
     }
     
     # Update reactiveData
@@ -625,7 +835,7 @@ server <- function(input, output, session) {
   })
   
   output$summaryInfo <- renderPrint({
-    summaryLog()
+    cat(summaryLog(), sep = "\n")
   })
   
   output$dataSummary <- renderPrint({
@@ -791,7 +1001,6 @@ server <- function(input, output, session) {
       number_input = input$number_input,
       new_col_name = input$NewF
     )
-    
     NF_Data(updated_df)  
     new_feature_name(input$NewF)
   })
@@ -806,6 +1015,12 @@ server <- function(input, output, session) {
     req(NF_Data(), new_feature_name())  
     df <- NF_Data()
     colname <- new_feature_name()
+    if (any(is.infinite(df[[colname]]))){
+      message_MN <-  paste0("Warning: The new feature '", colname, "' contains Inf values.\n ",
+                            "Check for division by zero or log of non-positive numbers or Exponentiation Overflow.")
+      
+      cat(message_MN,"\n")
+    }
     cat("New Feature Name:",colname,"\n")
     cat("Distribution:","\n")
     print(summary(df[[colname]]))
@@ -831,10 +1046,35 @@ server <- function(input, output, session) {
     df <- reactiveData()
     req(df, input$statVar, input$histogram)
     
-    ggplot(df, aes_string(x = input$statVar)) +
-      geom_histogram(binwidth = input$binWidth, fill = "skyblue", color = "black") +
+    # Set default binwidth
+    binwidth <- input$binWidth
+    
+    # Apply custom binwidth if "Enter Binwidth" is selected
+    if ("Enter Binwidth" %in% input$histOptions) {
+      binwidth <- input$customBinwidth
+    }
+    
+    # Set default histogram plot
+    p <- ggplot(df, aes_string(x = input$statVar)) +
+      geom_histogram(binwidth = binwidth, fill = "skyblue", color = "black") +
       theme_minimal() +
       labs(title = "Histogram", x = input$statVar, y = "Frequency")
+    
+    # Adjust starting bin if selected
+    if ("Select Starting Bin" %in% input$histOptions) {
+      max_value <- max(df[[input$statVar]], na.rm = TRUE)
+      p <- p + scale_x_continuous(limits = c(input$startBin, max_value))
+    }
+    
+    # Convert to percentage if "Display Percent" is selected
+    if ("Display Percent" %in% input$histOptions) {
+      p <- ggplot(df, aes_string(x = input$statVar)) +
+        geom_histogram(aes(y = ..density.. * 100), binwidth = binwidth, fill = "skyblue", color = "black") +
+        theme_minimal() +
+        labs(title = "Histogram (Percent)", x = input$statVar, y = "Percent (%)")
+    }
+    
+    p
   })
   
   # Render Boxplot
@@ -872,48 +1112,6 @@ server <- function(input, output, session) {
       labs(title = "Dotplot", x = input$statVar, y = "Count")
   })
   
-  observe({
-    df <- reactiveData()
-    req(df)
-    
-    updateSelectInput(session, "xVar", choices = names(df), selected = names(df)[1])
-    updateSelectInput(session, "yVar", choices = names(df), selected = names(df)[2])
-  })
-  
-  # Render Scatter Plot
-  output$scatterPlotOutput <- renderPlot({
-    df <- reactiveData()
-    req(df, input$xVar, input$yVar, input$scatterPlot)
-    
-    p <- ggplot(df, aes_string(x = input$xVar, y = input$yVar)) +
-      geom_point(color = "blue") +
-      theme_minimal() +
-      labs(title = "Scatter Plot", x = input$xVar, y = input$yVar)
-    
-    # Add smooth line if selected
-    if (input$smooth) {
-      p <- p + geom_smooth(method = "loess", color = "red", se = FALSE)
-    }
-    
-    p
-  })
-  
-  output$linePlotOutput <- renderPlot({
-    df <- reactiveData()
-    req(df, input$xVar, input$yVar, input$linePlot)
-    
-    p <- ggplot(df, aes_string(x = input$xVar, y = input$yVar)) +
-      geom_line(color = "black") +
-      theme_minimal() +
-      labs(title = "Line Plot", x = input$xVar, y = input$yVar)
-    
-    # Add smooth line if selected
-    if (input$lineSmooth) {
-      p <- p + geom_smooth(method = "loess", color = "blue", se = FALSE)
-    }
-    
-    p
-  })
   
   # Render Correlation Heatmap
   output$heatmapOutput <- renderPlot({
@@ -945,6 +1143,160 @@ server <- function(input, output, session) {
       theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
       labs(title = "Correlation Heatmap", x = "", y = "")
   })
+  
+  
+  observe({
+    df <- reactiveData()
+    req(df)  
+    
+    # Select only numeric columns
+    numeric_cols <- names(df)[sapply(df, is.numeric)]
+    
+    # Select only categorical columns
+    categorical_cols <- names(df)[sapply(df, is.factor) | sapply(df, is.character)]
+    
+    # Update selectInput choices
+    updateSelectInput(session, "statVar", choices = numeric_cols, selected = numeric_cols[1])
+    updateSelectInput(session, "catVar", choices = categorical_cols, selected = categorical_cols[1])
+  })
+  
+  output$barChartPlot <- renderPlot({
+    df <- reactiveData()
+    req(df, input$catVar, input$barChart)  # Ensure input is selected
+    
+    # Convert categorical variable to factor (needed for ggplot)
+    df[[input$catVar]] <- as.factor(df[[input$catVar]])
+    
+    # Count frequency of each category
+    plot_data <- df %>%
+      count(!!sym(input$catVar)) %>%
+      mutate(Percent = n / sum(n) * 100)
+    
+    # Create the bar chart
+    p <- ggplot(plot_data, aes(x = !!sym(input$catVar), y = n, fill = !!sym(input$catVar))) +
+      geom_bar(stat = "identity", color = "black") +
+      theme_minimal() +
+      labs(title = "Bar Chart", x = input$catVar, y = "Count") +
+      theme(legend.position = "none")
+    
+    # Display Percent if selected
+    if (input$displayPercent) {
+      p <- p + geom_text(aes(label = paste0(round(Percent, 1), "%")), vjust = -0.5)
+    }
+    
+    p
+  })
+  
+  output$pieChartPlot <- renderPlot({
+    df <- reactiveData()
+    req(df, input$catVar, input$pieChart)  # Ensure input is selected
+    
+    # Convert categorical variable to factor (needed for ggplot)
+    df[[input$catVar]] <- as.factor(df[[input$catVar]])
+    
+    # Count frequency of each category
+    plot_data <- df %>%
+      count(!!sym(input$catVar)) %>%
+      mutate(Percent = n / sum(n) * 100)
+    
+    # Create the pie chart
+    ggplot(plot_data, aes(x = "", y = n, fill = !!sym(input$catVar))) +
+      geom_bar(stat = "identity", width = 1) +
+      coord_polar(theta = "y") +
+      theme_void() +
+      labs(title = "Pie Chart", fill = input$catVar) +
+      theme(legend.position = "right")
+  })
+  
+  observe({
+    df <- reactiveData()
+    req(df)  
+    
+    # Select only numeric columns
+    numeric_cols <- names(df)[sapply(df, is.numeric)]
+    
+    # Select only categorical columns
+    categorical_cols <- names(df)[sapply(df, is.factor) | sapply(df, is.character)]
+    
+    # Update selectInput choices
+    updateSelectInput(session, "xNumVar", choices = numeric_cols, selected = numeric_cols[1])
+    updateSelectInput(session, "yNumVar", choices = numeric_cols, selected = numeric_cols[1])
+    updateSelectInput(session, "xCatVar", choices = categorical_cols, selected = categorical_cols[1])
+    updateSelectInput(session, "yCatVar", choices = categorical_cols, selected = categorical_cols[1])
+    updateSelectInput(session, "numVar", choices = numeric_cols, selected = numeric_cols[1])
+    updateSelectInput(session, "catVarCN", choices = categorical_cols, selected = categorical_cols[1])
+  })
+  
+  
+  output$scatterPlotOutput <- renderPlot({
+    df <- reactiveData()
+    req(df, input$xNumVar, input$yNumVar, input$scatterPlot)
+    
+    p <- ggplot(df, aes_string(x = input$xNumVar, y = input$yNumVar)) +
+      geom_point(color = "blue", alpha = 0.7) +
+      theme_minimal() +
+      labs(title = "Scatter Plot", x = input$xNumVar, y = input$yNumVar)
+    
+    if (input$smooth) {
+      p <- p + geom_smooth(method = "lm", se = FALSE, color = "red")
+    }
+    
+    p
+  })
+  
+  output$linePlotOutput <- renderPlot({
+    df <- reactiveData()
+    req(df, input$xNumVar, input$yNumVar, input$linePlot)
+    
+    p <- ggplot(df, aes_string(x = input$xNumVar, y = input$yNumVar)) +
+      geom_line(color = "blue") +
+      theme_minimal() +
+      labs(title = "Line Plot", x = input$xNumVar, y = input$yNumVar)
+    
+    if (input$lineSmooth) {
+      p <- p + geom_smooth(method = "lm", se = FALSE, color = "red")
+    }
+    
+    p
+  })
+  
+  output$catPlotOutput <- renderPlot({
+    df <- reactiveData()
+    req(df, input$xCatVar, input$yCatVar, input$catPlotType)
+    
+    df[[input$xCatVar]] <- as.factor(df[[input$xCatVar]])
+    df[[input$yCatVar]] <- as.factor(df[[input$yCatVar]])
+    
+    p <- ggplot(df, aes(x = !!sym(input$xCatVar), fill = !!sym(input$yCatVar)))
+    
+    if (input$catPlotType == "Grouped Bar Chart") {
+      p <- p + geom_bar(position = "dodge") + labs(title = "Grouped Bar Chart")
+    } else if (input$catPlotType == "Stacked Bar Chart") {
+      p <- p + geom_bar(position = "stack") + labs(title = "Stacked Bar Chart")
+    } else if (input$catPlotType == "100% Stacked Bar") {
+      p <- p + geom_bar(position = "fill") + labs(title = "100% Stacked Bar Chart", y = "Proportion")
+    }
+    
+    p + theme_minimal() + labs(x = input$xCatVar, y = "Count")
+  })
+  
+  output$catNumPlotOutput <- renderPlot({
+    df <- reactiveData()
+    req(df, input$numVar, input$catVarCN, input$catNumPlotType)
+    
+    df[[input$catVarCN]] <- as.factor(df[[input$catVarCN]])
+    
+    p <- ggplot(df, aes(x = !!sym(input$catVarCN), y = !!sym(input$numVar), fill = !!sym(input$catVarCN)))
+    
+    if (input$catNumPlotType == "Boxplot") {
+      p <- p + geom_boxplot() + labs(title = "Boxplot: Numerical vs Categorical")
+    } else if (input$catNumPlotType == "Violin Plot") {
+      p <- p + geom_violin() + labs(title = "Violin Plot: Numerical vs Categorical")
+    }
+    
+    p + theme_minimal()
+  })
+  
   
 }
 
