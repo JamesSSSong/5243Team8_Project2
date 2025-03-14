@@ -2,12 +2,16 @@
 title: "STAT5243 Project 2 - Team 8"
 output: pdf_document
 ---
+Team Member: Dailin Song (ds4354), Sara Hassani (sh4090), Yi Lu (yl5735), Ruoshi Zhang (rz2699)
 
 ## Introduction
 
 The Interactive Data Analysis App ("IDA") is a one-stop solution designed to make your data workflow seamless and intuitive. Whether you're a beginner or an experienced analyst, this app equips you with everything you need to load, preprocess, analyze, and visualize datasets---all in one interactive platform.
 
 Deployed Web App: [link](https://ruoshi-zhang.shinyapps.io/STAT5243_Project2_Team8/)
+
+GitHub Repositories Link: <https://github.com/JamesSSSong/5243Team8_Project2>\
+Please note that there are two branches under this repositories. `main` contains our final application R file. `History` includes all the files each group member worked and uploaded.
 
 IDA incorporates an intuitive workflow that allows for:
 
