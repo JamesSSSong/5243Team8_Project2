@@ -58,6 +58,14 @@ ui <- fluidPage(
           checkboxInput("removeDuplicates", "Remove Duplicates", value = FALSE),
           
           hr(),
+          # User manually converse
+          selectizeInput("manualNumeric", "Make Selected Columns to Numeric", 
+                         choices = NULL, multiple = TRUE),
+          selectizeInput("manualCategorical", "Make Selected Columns to Categorical", 
+                         choices = NULL, multiple = TRUE),
+          selectizeInput("timeVars", "Select Date Variables", choices = NULL, multiple = TRUE),
+          p("The date variables need to be in a format that includes day, month and year values."),
+          
           selectizeInput("scaleCols", "Columns to Scale", 
                          choices = NULL, multiple = TRUE),
           
@@ -72,10 +80,6 @@ ui <- fluidPage(
                       choices = c("None", "Remove Outliers", "Winsorize Outliers")),
           hr(),
           
-          selectizeInput("timeVars", "Select Date Variables", choices = NULL, multiple = TRUE),
-          p("The date variables need to be in a format that includes day, month and year values."),
-          
-          hr(),
           actionButton("processData", "Process Data", class = "btn-primary")
         ),
         
@@ -88,7 +92,7 @@ ui <- fluidPage(
                      radioButtons("distPlotType", "Plot Type", choices = c("Histogram", "Boxplot")),
                      plotOutput("distPlot")
             ),
-            tabPanel("Summary", verbatimTextOutput("summaryInfo")),  
+            tabPanel("Historical Activities", verbatimTextOutput("summaryInfo")),  
             tabPanel("Processed Data", DTOutput("processedDataTable"))
           )
         )
@@ -328,6 +332,7 @@ ui <- fluidPage(
         tags$li("Upload a dataset or use a provided sample dataset."),
         tags$li("Navigate to the 'Data Preprocess' tab."),
         tags$li("Clean and transform your data by selecting the appropriate variables and strategies."),
+        tags$li("Click 'Historical Activities' to view all the past preprocessing procedures."),
         tags$li("Navigate to the 'Feature Engineering' tab."),
         tags$li("Choose preferred method."),
         tags$li("Specify columns, parameters, or operations as needed."),
@@ -745,7 +750,7 @@ new_maker <- function(df, col1, operation, input_type, col2, number_input, new_c
 server <- function(input, output, session) {
   origionData <- reactiveVal(NULL)  
   reactiveData <- reactiveVal(NULL)  
-  summaryLog <- reactiveVal("No modifications made yet.")
+  summaryLog <- reactiveVal(c("Preprocessing activities:"))
   PCA_transformed_Data<- reactiveVal(NULL)  
   FS_result<- reactiveVal(NULL)  
   NF_Data <- reactiveVal(data.frame())  
@@ -769,7 +774,7 @@ server <- function(input, output, session) {
     
     origionData(df)
     reactiveData(df)
-    summaryLog("Data loaded successfully.")
+    summaryLog(c(summaryLog(), "Data loaded successfully."))
   })
   
   observe({
@@ -777,6 +782,9 @@ server <- function(input, output, session) {
     if (!is.null(df)) {
       updateSelectInput(session, "xvar", choices = names(df)) 
       updateSelectInput(session, "yvar", choices = names(df))
+      
+      updateSelectizeInput(session, "manualNumeric", choices = names(df), server = TRUE)
+      updateSelectizeInput(session, "manualCategorical", choices = names(df), server = TRUE)
       
       numeric_cols <- names(df)[sapply(df, is.numeric)]
       updateSelectInput(session, "distCol", choices = numeric_cols)
@@ -801,33 +809,53 @@ server <- function(input, output, session) {
       num_duplicates <- sum(duplicated(df))
       if (num_duplicates > 0) {
         df <- unique(df)
-        summaryLog(paste(summaryLog(), "Removed Duplicates:", num_duplicates))
+        summaryLog(c(summaryLog(), paste("Removed Duplicates:", num_duplicates)))
       } else {
-        summaryLog(paste(summaryLog(), "No duplicates found."))
+        summaryLog(c(summaryLog(), "No duplicates found."))
       }
     }
     
-    # 2. Scale if user selected columns
+    # 2. let user manually select columns to convert to corresponding type
+    if (!is.null(input$manualNumeric) && length(input$manualNumeric) > 0) {
+      for(col in input$manualNumeric) {
+        df[[col]] <- as.numeric(as.character(df[[col]]))
+      }
+      summaryLog(c(summaryLog(), 
+                   paste("Manually converted to numeric:", 
+                         paste(input$manualNumeric, collapse = ", "))))
+    }
+    
+    if (!is.null(input$manualCategorical) && length(input$manualCategorical) > 0) {
+      for(col in input$manualCategorical) {
+        df[[col]] <- as.factor(as.character(df[[col]]))
+      }
+      summaryLog(c(summaryLog(), 
+                   paste("Manually converted to categorical:", 
+                         paste(input$manualCategorical, collapse = ", "))))
+    }
+    
+    # 3. Scale if user selected columns
     if (!is.null(input$scaleCols) && length(input$scaleCols) > 0) {
       df <- standardize(df, input$scaleCols)
       summaryLog(paste(summaryLog(), "Scaled columns:", paste(input$scaleCols, collapse = ", ")))
     }
     
-    # 3. Encode categorical cols if user selected cols & strategy != "None"
+    # 4. Encode categorical cols if user selected cols & strategy != "None"
     if (!is.null(input$encodeCols) && length(input$encodeCols) > 0 && input$encodingStrategy != "None") {
       df <- encode_categorical(df, input$encodeCols, strategy = input$encodingStrategy)
-      summaryLog(paste(summaryLog(), "Encoded columns:", paste(input$encodeCols, collapse = ", "),
-                       "Strategy:", input$encodingStrategy))
+      summaryLog(c(summaryLog(), 
+                   paste("Encoded columns:", paste(input$encodeCols, collapse = ", "),
+                         "Strategy:", input$encodingStrategy)))
     }
     
-    # 4. Handle Outliers
+    # 5. Handle Outliers
     if (input$outlierStrategy != "None") {
       df <- handle_outliers(df, 
                             outlier_strategy = input$outlierStrategy)
-      summaryLog(paste(summaryLog(), "Outlier Handling:", input$outlierStrategy))
+      summaryLog(c(summaryLog(), paste("Outlier Handling:", input$outlierStrategy)))
     }
     
-    # 5. Turn variables into Date format
+    # 6. Turn variables into Date format
     if(!is.null(input$timeVars)){
       l = length(input$timeVars)
       for(i in 1:l){
@@ -852,7 +880,7 @@ server <- function(input, output, session) {
   })
   
   output$summaryInfo <- renderPrint({
-    summaryLog()
+    cat(summaryLog(), sep = "\n")
   })
   
   output$dataSummary <- renderPrint({
