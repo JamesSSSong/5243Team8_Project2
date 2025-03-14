@@ -84,7 +84,7 @@ ui <- fluidPage(
                      radioButtons("distPlotType", "Plot Type", choices = c("Histogram", "Boxplot")),
                      plotOutput("distPlot")
             ),
-            tabPanel("Summary", verbatimTextOutput("summaryInfo")),  
+            tabPanel("Historical Activities", verbatimTextOutput("summaryInfo")),  
             tabPanel("Processed Data", DTOutput("processedDataTable"))
           )
         )
@@ -102,7 +102,7 @@ ui <- fluidPage(
           tabsetPanel(
             # PCA
             tabPanel("PCA",
-                     h4("PCA (Principal Component Analysis"),
+                     h4("PCA (Principal Component Analysis)"),
                      selectizeInput("pcaCols", "Select Columns for PCA", choices = NULL, multiple = TRUE),
                      numericInput("numPCA", "Number of Principal Components", value = 2, min = 1, max = 10, step = 1),
                      actionButton("applyPCA", "Apply PCA", class = "btn-primary"),
@@ -331,6 +331,56 @@ ui <- fluidPage(
               plotOutput("heatmapOutput", height = "500px")
             )
           )
+        ),
+        
+        tabPanel(
+          title = "Statistical Test",
+          sidebarLayout(
+            sidebarPanel(
+              h3("Numerical vs. Numerical Test"),
+              
+              # Select correlation test
+              selectInput("numNumTest", "Select Correlation Test:",
+                          choices = c("Pearson Correlation", "Kendall Correlation")),
+              
+              # Conditional selection of numerical variables
+              conditionalPanel(
+                condition = "input.numNumTest != ''",
+                fluidRow(
+                  column(6, selectInput("numVar1", "Select First Numerical Variable:", choices = NULL, selected = NULL)),
+                  column(6, selectInput("numVar2", "Select Second Numerical Variable:", choices = NULL, selected = NULL))
+                )
+              ),
+              
+              # Space before categorical section
+              br(), br(), hr(), br(),
+              
+              h3("Categorical vs. Categorical Test"),
+              
+              # Select categorical test
+              selectInput("catCatTest", "Select Categorical Test:",
+                          choices = c("Chi-Square Test")),
+              
+              # Conditional selection of categorical variables
+              conditionalPanel(
+                condition = "input.catCatTest != ''",
+                fluidRow(
+                  column(6, selectInput("catVar1", "Select First Categorical Variable:", choices = NULL, selected = NULL)),
+                  column(6, selectInput("catVar2", "Select Second Categorical Variable:", choices = NULL, selected = NULL))
+                )
+              )
+            ),
+            
+            mainPanel(
+              h4("Numerical Test Result"),
+              verbatimTextOutput("numNumTestResult"),
+              
+              br(), br(), hr(), br(),
+              
+              h4("Categorical Test Result"),
+              verbatimTextOutput("catCatTestResult")
+            )
+          )
         )
       )
     ),
@@ -338,7 +388,115 @@ ui <- fluidPage(
     # About Page
     tabPanel(
       title = "About",
-      titlePanel("About"),
+      titlePanel("About This Project"),
+      h3("How to Use This App?"),
+      tags$ol(
+        tags$li("Upload a dataset or use a provided sample dataset."),
+        tags$li("Navigate to the 'Data Preprocess' tab."),
+        tags$li("Clean and transform your data by selecting the appropriate variables and strategies."),
+        tags$li("Navigate to the 'Feature Engineering' tab."),
+        tags$li("Choose preferred method."),
+        tags$li("Specify columns, parameters, or operations as needed."),
+        tags$li("Apply and review the results."),
+        tags$li("Navigate to the 'EDA' tab."),
+        tags$li("Choose the appropriate analysis type."),
+        tags$li("Select variables and visualization options."),
+        tags$li("Analyze and interpret insights dynamically.")
+      ),
+      hr(),
+      
+      h3("Key Features"),
+      tags$ul(
+        tags$li("🔹 Easy data visualization with interactive graphs."),
+        tags$li("🔹 Dynamic selection of variables and plot types."),
+        tags$li("🔹 Supports numerical, categorical, and mixed data."),
+        tags$li("🔹 Provides different feature engineering techniques."),
+        tags$li("🔹 Correlation heatmaps for in-depth analysis.")
+      ),
+      
+      h3("Data Cleaning and Preprocessing"),
+      p("The Data Cleaning and Preprocessing modules allows users to initially clean, transform, and enrich raw data using the following functions:"),
+      tags$ul(
+        tags$li(strong("Missingness and Duplication"), " – Handle missing and duplicated values."),
+        tags$li(strong("Data Type Conversion"), " – Convert columns to appropriate data type."),
+        tags$li(strong("Transformation"), " – Standardize numeric columns, and encode categorical columns."),
+        tags$li(strong("Outliers"), " – Detect and handle outliers.")
+      ),
+      
+      h3("1️⃣ Missingness and Duplication"),
+      tags$ul(
+        tags$li("Data statistics are presented under 'Data Statistics'."),
+        tags$li("The system automatically identifies missing values."),
+        tags$li("Select strategy to deal with null values: remove or impute with median for numeric columns or mode for categorical columns."),
+        tags$li("The system will identify duplicated values, see 'Duplicates'."),
+        tags$li("Remove duplicated values by clicking 'Remove Duplicates'.")
+      ),
+      
+      h3("2️⃣ Data Type Conversion"),
+      p("This function allows users to manually select columns to convert."),
+      tags$ul(
+        tags$li("The system can automatically recognize data type of every columns."),
+        tags$li("For columns that are incorrectly recognized, user can select column(s) to convert to appropriate types.")
+      ),
+      
+      h3("3️⃣ Transformation"),
+      p("This function perform necessary transformations to numeric and categorical columns."),
+      tags$ul(
+        tags$li("Select numeric column(s) to standardize."),
+        tags$li("Select categorical column(s) to encode through One-Hot encoding or Dummy encoding."),
+        tags$li("Click 'Distribution' to  view the effect of transformations.")
+      ),
+      
+      h3("4️⃣ Outliers"),
+      p("This function allows user to handle outliers"),
+      tags$ul(
+        tags$li("The system can automatically detect outliers using an interquartile range (IQR)."),
+        tags$li("Select strategy to handle outliers."),
+        tags$li("Click 'Processed Data' to  view the current dataset.")
+      ),
+      hr(),
+      
+      h3("Feature Engineering"),
+      p("The Feature Engineering module allows users to modify and enhance dataset features. It consists of three main functions:"),
+      
+      tags$ul(
+        tags$li(strong("Principal Component Analysis (PCA)"), " – Reduce dimensionality and extract important components."),
+        tags$li(strong("Feature Selection"), " – Identify the most relevant features for modeling."),
+        tags$li(strong("Custom Feature Creation"), " – Generate new features based on mathematical operations.")
+      ),
+      
+      h3("1️⃣ Principal Component Analysis (PCA)"),
+      p("PCA helps users transform features into principal components for dimensionality reduction."),
+      tags$ul(
+        tags$li("Select features for PCA transformation."),
+        tags$li("Choose the number of principal components."),
+        tags$li("Remove incorrect selections using the Backspace key."),
+        tags$li("The summary of principal components appears in the 'PCA Summary' subpanel."),
+        tags$li("Click 'Apply PCA' to transform data and view results in 'PCA Transformed Data'."),
+        tags$li("If satisfied, save the transformed data for further analysis in the EDA section by clicking 'Save PCA Result' .")
+      ),
+      
+      h3("2️⃣ Feature Selection"),
+      p("This function helps users select the most important features for modeling."),
+      tags$ul(
+        tags$li("Select the dependent variable and feature selection method."),
+        tags$li("Set relevant parameters (irrelevant ones can be ignored)."),
+        tags$li("If using regularization, enable cross-validation via 'Cross Validation for Select Lambda'."),
+        tags$li("View selected features in 'Feature Selection Summary'."),
+        tags$li("For detailed insights, enable 'Show More Detail'.")
+      ),
+      
+      h3("3️⃣ Custom Feature Creation"),
+      p("Users can create new features using mathematical operations."),
+      tags$ul(
+        tags$li("Choose 'Selected Column' for operations on two features or 'Enter Number' for single feature operations."),
+        tags$li("Operations include Addition, Subtraction, Multiplication, Division, and Logarithm."),
+        tags$li("For division, the first feature is the dividend, the second is the divisor. The same goes for subtraction."),
+        tags$li("For the natural logarithm option, only the first feature will take effect. "),
+        tags$li("Results appear in 'New Feature Summary' after clicking 'Apply Operation'."),
+        tags$li("To save the new feature, click 'Save the New Feature' for further analysis in the EDA section.")
+      ),
+      hr(),
       
       h3("Exploratory Data Analysis (EDA)"),
       p("The EDA module helps users explore and visualize datasets interactively. It consists of three sections:"),
@@ -368,23 +526,6 @@ ui <- fluidPage(
       tags$ul(
         tags$li("Color-coded matrix (darker = stronger correlation)."),
         tags$li("Helps identify patterns and dependencies.")
-      ),
-      
-      h3("How to Use This App?"),
-      tags$ol(
-        tags$li("Upload a dataset or use a sample dataset."),
-        tags$li("Navigate to the 'EDA' tab."),
-        tags$li("Choose the appropriate analysis type."),
-        tags$li("Select variables and visualization options."),
-        tags$li("Analyze and interpret insights dynamically.")
-      ),
-      
-      h3("Key Features"),
-      tags$ul(
-        tags$li("🔹 Easy data visualization with interactive graphs."),
-        tags$li("🔹 Dynamic selection of variables and plot types."),
-        tags$li("🔹 Supports numerical, categorical, and mixed data."),
-        tags$li("🔹 Correlation heatmaps for in-depth analysis.")
       ),
       
       hr(),
@@ -621,7 +762,6 @@ new_maker <- function(df, col1, operation, input_type, col2 = NULL, number_input
       df[[new_col_name]] <- operation_map[[operation]](df[[col1]], number_input)
     }
   }
-  
   return(df)
 }
 
@@ -629,7 +769,7 @@ new_maker <- function(df, col1, operation, input_type, col2 = NULL, number_input
 server <- function(input, output, session) {
   origionData <- reactiveVal(NULL)  
   reactiveData <- reactiveVal(NULL)  
-  summaryLog <- reactiveVal("No modifications made yet.")
+  summaryLog <- reactiveVal(c("Preprocessing activities:"))
   PCA_transformed_Data<- reactiveVal(NULL)  
   FS_result<- reactiveVal(NULL)  
   NF_Data <- reactiveVal(data.frame())  
@@ -653,7 +793,7 @@ server <- function(input, output, session) {
     
     origionData(df)
     reactiveData(df)
-    summaryLog("Data loaded successfully.")
+    summaryLog(c(summaryLog(), "Data loaded successfully."))
   })
   
   observe({
@@ -683,9 +823,9 @@ server <- function(input, output, session) {
       num_duplicates <- sum(duplicated(df))
       if (num_duplicates > 0) {
         df <- unique(df)
-        summaryLog(paste(summaryLog(), "Removed Duplicates:", num_duplicates))
+        summaryLog(c(summaryLog(), paste("Removed Duplicates:", num_duplicates)))
       } else {
-        summaryLog(paste(summaryLog(), "No duplicates found."))
+        summaryLog(c(summaryLog(), "No duplicates found."))
       }
     }
     # 2. let user manually select columns to convert to corresponding type
@@ -693,34 +833,40 @@ server <- function(input, output, session) {
       for(col in input$manualNumeric) {
         df[[col]] <- as.numeric(as.character(df[[col]]))
       }
-      summaryLog(paste(summaryLog(), "Manually converted to numeric:", paste(input$manualNumeric, collapse = ", ")))
+      summaryLog(c(summaryLog(), 
+                   paste("Manually converted to numeric:", 
+                         paste(input$manualNumeric, collapse = ", "))))
     }
     
     if (!is.null(input$manualCategorical) && length(input$manualCategorical) > 0) {
       for(col in input$manualCategorical) {
         df[[col]] <- as.factor(as.character(df[[col]]))
       }
-      summaryLog(paste(summaryLog(), "Manually converted to factor:", paste(input$manualCategorical, collapse = ", ")))
+      summaryLog(c(summaryLog(), 
+                   paste("Manually converted to categorical:", 
+                         paste(input$manualCategorical, collapse = ", "))))
     }
     
     # 3. Scale if user selected columns
     if (!is.null(input$scaleCols) && length(input$scaleCols) > 0) {
       df <- standardize(df, input$scaleCols)
-      summaryLog(paste(summaryLog(), "Scaled columns:", paste(input$scaleCols, collapse = ", ")))
+      summaryLog(c(summaryLog(), 
+                   paste("Scaled columns:", paste(input$scaleCols, collapse = ", "))))
     }
     
     # 4. Encode categorical cols if user selected cols & strategy != "None"
     if (!is.null(input$encodeCols) && length(input$encodeCols) > 0 && input$encodingStrategy != "None") {
       df <- encode_categorical(df, input$encodeCols, strategy = input$encodingStrategy)
-      summaryLog(paste(summaryLog(), "Encoded columns:", paste(input$encodeCols, collapse = ", "),
-                       "Strategy:", input$encodingStrategy))
+      summaryLog(c(summaryLog(), 
+                   paste("Encoded columns:", paste(input$encodeCols, collapse = ", "),
+                         "Strategy:", input$encodingStrategy)))
     }
     
     # 5. Handle Outliers
     if (input$outlierStrategy != "None") {
       df <- handle_outliers(df, 
                             outlier_strategy = input$outlierStrategy)
-      summaryLog(paste(summaryLog(), "Outlier Handling:", input$outlierStrategy))
+      summaryLog(c(summaryLog(), paste("Outlier Handling:", input$outlierStrategy)))
     }
     
     # Update reactiveData
@@ -739,7 +885,7 @@ server <- function(input, output, session) {
   })
   
   output$summaryInfo <- renderPrint({
-    summaryLog()
+    cat(summaryLog(), sep = "\n")
   })
   
   output$dataSummary <- renderPrint({
@@ -905,7 +1051,6 @@ server <- function(input, output, session) {
       number_input = input$number_input,
       new_col_name = input$NewF
     )
-    
     NF_Data(updated_df)  
     new_feature_name(input$NewF)
   })
@@ -920,6 +1065,12 @@ server <- function(input, output, session) {
     req(NF_Data(), new_feature_name())  
     df <- NF_Data()
     colname <- new_feature_name()
+    if (any(is.infinite(df[[colname]]))){
+      message_MN <-  paste0("Warning: The new feature '", colname, "' contains Inf values.\n ",
+                            "Check for division by zero or log of non-positive numbers or Exponentiation Overflow.")
+      
+      cat(message_MN,"\n")
+    }
     cat("New Feature Name:",colname,"\n")
     cat("Distribution:","\n")
     print(summary(df[[colname]]))
@@ -1196,6 +1347,118 @@ server <- function(input, output, session) {
     p + theme_minimal()
   })
   
+  observe({
+    df <- reactiveData()
+    req(df)  
+    
+    # Select only numeric columns
+    numeric_cols <- names(df)[sapply(df, is.numeric)]
+    
+    # Update selectInput choices for numerical correlation tests
+    updateSelectInput(session, "numVar1", choices = numeric_cols, selected = numeric_cols[1])
+    updateSelectInput(session, "numVar2", choices = numeric_cols, selected = numeric_cols[2])
+  })
+  
+  output$numNumTestResult <- renderPrint({
+    df <- reactiveData()
+    req(df, input$numVar1, input$numVar2, input$numNumTest)
+    
+    # Determine test method
+    test_method <- ifelse(input$numNumTest == "Pearson Correlation", "pearson", "kendall")
+    
+    # Perform the correlation test
+    test_result <- cor.test(df[[input$numVar1]], df[[input$numVar2]], method = test_method)
+    
+    # Extract key values
+    correlation_coefficient <- test_result$estimate
+    p_value <- test_result$p.value
+    
+    # Interpretation
+    interpretation <- if (p_value < 0.05) {
+      "The correlation is statistically significant (p < 0.05), meaning there is evidence of an association."
+    } else {
+      "The correlation is not statistically significant (p ≥ 0.05), meaning there is no strong evidence of an association."
+    }
+    
+    strength <- ifelse(abs(correlation_coefficient) > 0.7, "strong",
+                       ifelse(abs(correlation_coefficient) > 0.4, "moderate",
+                              ifelse(abs(correlation_coefficient) > 0.2, "weak", "very weak or none")))
+    
+    relationship <- ifelse(correlation_coefficient > 0, "positive", "negative")
+    
+    cat("📌", input$numNumTest, "Results:\n")
+    cat("----------------------------------\n")
+    cat("🔹 Correlation Coefficient:", round(correlation_coefficient, 3), "\n")
+    cat("🔹 P-Value:", format.pval(p_value, digits = 3), "\n")
+    cat("🔹 Interpretation:", interpretation, "\n")
+    cat("🔹 Strength of Relationship:", strength, "(", relationship, "correlation )\n")
+    
+    if (strength == "strong") {
+      cat("✅ This suggests a strong association between", input$numVar1, "and", input$numVar2, ".\n")
+    } else if (strength == "moderate") {
+      cat("⚠ There is a moderate relationship, indicating some degree of association.\n")
+    } else if (strength == "weak") {
+      cat("🔍 The correlation is weak, meaning the variables might not be strongly related.\n")
+    } else {
+      cat("❌ The correlation is very weak or non-existent.\n")
+    }
+  })
+  
+  observe({
+    df <- reactiveData()
+    req(df)  
+    
+    # Select only categorical columns
+    categorical_cols <- names(df)[sapply(df, is.factor) | sapply(df, is.character)]
+    
+    # Update selectInput choices for categorical test
+    updateSelectInput(session, "catVar1", choices = categorical_cols, selected = categorical_cols[1])
+    updateSelectInput(session, "catVar2", choices = categorical_cols, selected = categorical_cols[2])
+  })
+  
+  output$catCatTestResult <- renderPrint({
+    df <- reactiveData()
+    req(df, input$catVar1, input$catVar2, input$catCatTest)
+    
+    # Create contingency table
+    contingency_table <- table(df[[input$catVar1]], df[[input$catVar2]])
+    
+    # Perform Chi-Square Test
+    test_result <- chisq.test(contingency_table)
+    
+    # Extract key values
+    chi_square_value <- test_result$statistic
+    p_value <- test_result$p.value
+    expected_values <- test_result$expected
+    
+    # Interpretation
+    interpretation <- if (p_value < 0.05) {
+      "The test is statistically significant (p < 0.05), meaning there is an association between these categorical variables."
+    } else {
+      "The test is not statistically significant (p ≥ 0.05), meaning there is no strong evidence of an association."
+    }
+    
+    strength <- ifelse(p_value < 0.01, "very strong",
+                       ifelse(p_value < 0.05, "moderate",
+                              ifelse(p_value < 0.1, "weak", "no significant")))
+    
+    cat("📌 Chi-Square Test Results:\n")
+    cat("----------------------------------\n")
+    cat("🔹 Chi-Square Value:", round(chi_square_value, 3), "\n")
+    cat("🔹 P-Value:", format.pval(p_value, digits = 3), "\n")
+    cat("🔹 Interpretation:", interpretation, "\n")
+    cat("🔹 Strength of Association:", strength, "\n")
+    
+    if (strength == "very strong") {
+      cat("✅ This suggests a strong association between", input$catVar1, "and", input$catVar2, ".\n")
+    } else if (strength == "moderate") {
+      cat("⚠ There is a moderate association, indicating some dependence between these variables.\n")
+    } else if (strength == "weak") {
+      cat("🔍 The association is weak and should be interpreted with caution.\n")
+    } else {
+      cat("❌ There is no significant association between", input$catVar1, "and", input$catVar2, ".\n")
+    }
+  })
   
 }
 
