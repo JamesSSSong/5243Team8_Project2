@@ -1,6 +1,6 @@
 # Project 2 : Web Application Development and Deployment
 
-Deployed Web App: https://stat5243-project2-spring2025-team8.shinyapps.io/Project2-Team8-5243/
+Deployed Web App: URL https://ruoshi-zhang.shinyapps.io/STAT5243_Project2_Team8/
 
 ## Project Overview
 
@@ -11,14 +11,13 @@ IDA incorporates an intuitive workflow that allows for:
   -   Feature Engineering: Apply various transformations, including PCA, feature selection, and custom feature creation.
   -   Data Visualization: Create interactive graphs, dynamically select variables and plot types, and visualize numerical, categorical, and mixed data.
   -   Statistical Tests for Model Assumptions: Conduct normality, independence, and stationarity tests to validate analytical models.
-  -   Time Series Analysis: Explore patterns over time using ACF, PACF, and rolling mean visualizations.
 
 ## GitHub Files
 * The `web_dev.R` file includes coding for data preprocessing (Done by Ruoshi Zhang).
 * The `app_yi` file adds code for feature engineering based on the materials from `web_dev.R` (Done by Yi Lu).
 * The `web_development_re.R` file adds code for EDA based based on materials from the previous files (Done by Dailin Song).
 * The `app.R` file adds code for Statistical Tests, as well as the inclusion of time series data visualization, transformation and pre-processing (Done by Sara Hassani).
-* Please refer to **`app.R`** for final version of the web application.
+* Please refer to **`web_dev.R`** for final version of the web application.
 
 ## STEP 1 - Load your dataset
 
@@ -29,10 +28,10 @@ Load your dataset on the landing page of our app. It was designed to cater to mu
 
 The Data Cleaning and Preprocessing modules will allow you to initially clean, transform, and enrich your raw data using the following functions:
   -   Missing Value Strategy: to correct for missing and duplicated values.
-  -   Columns to Scale: to scale/standardize the values of a numeric variable, allowing for better statistical testing down the line.
+  -   Data Type Conversion: Convert columns to appropriate data type
+  -   Columns to Scale: to standardize the values of a numeric variable, allowing for better statistical testing down the line.
   -   Categorical Columns to Encode: to transform the categorical variables of your choosing into factor levels or dummy variables, depending on your use case.
   -   Outlier Handling Strategy: winsorize or impute outliers in chosen variables to allow for more precise analysis down the line.
-  - Select Data Variables: to ensure time variables keep their date format for future time series analysis on the app.
   
 ## STEP 3 - Conduct Statistical Analysis
 
@@ -47,19 +46,8 @@ On the other hand, you can also generate new features from both numeric panel da
 The EDA section provides several ways to explore data visually. IDA enables you to generate insightful visual representations of variable distributions through:
   -   Univariate Analysis: Displaying histograms, boxplots, and other visual tools to understand individual variable distributions.
   -   Bivariate Analysis: Utilizing correlation heatmaps, line plots, and scatter plots to explore relationships between two variables.
-  -   Time Series Analysis: Examining temporal patterns using time distribution plots, autocorrelation function (ACF), and partial autocorrelation function (PACF) plots to detect potential cyclical trends.
+  -   Heatmap: Displaying correlations between numerical variables.
+  -   Statistical Tests: Helps validate potential relationships between variables and provides initial diagnostics for commonly used model assumptions.
   
-These interactive visualizations make data exploration more intuitive and will allow you to uncover key insights efficiently.
-
-### 3.c. Exploratory Data Analysis - Statistical Tests
-
-The final section of IDA helps validate potential relationships between variables and provides initial diagnostics for commonly used model assumptions. The app includes:
-  -   Shapiro-Wilk Test – Evaluates whether a dataset follows a normal distribution.
-  -   Pearson's Chi-Squared Test – Tests independence between two categorical variables.
-  -   Spearman Correlation Coefficient – Assesses non-linear relationships between two numeric variables beyond the assumption of linearity.
-  -   Wilcoxon Rank-Sum Test – Compares distributions of two independent groups within a categorical variable concerning a numeric outcome.
-  -   Kruskal-Wallis Test – Extends the Wilcoxon test to compare distributions across three or more groups.
-  -   Augmented Dickey-Fuller Test – Determines whether a time series dataset exhibits stationarity.
-  
-These statistical tools will allow you to explore and validate patterns in their data before proceeding to more advanced modeling.
+These interactive visualizations make data exploration more intuitive and will allow you to uncover key insights efficiently. Furthermore, the statistical tools will allow you to explore and validate patterns in their data before proceeding to more advanced modeling.
 
