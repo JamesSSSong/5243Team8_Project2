@@ -9,6 +9,10 @@ library(tools)
 library(dplyr)
 library(glmnet)
 library(olsrr)
+library(stats)
+library(lubridate)
+library(xts)
+library(tseries)
 
 # User Interface (UI)
 ui <- fluidPage(
@@ -25,8 +29,9 @@ ui <- fluidPage(
         sidebarPanel(
           fileInput("file", "Upload Dataset", accept = c(".csv", ".xlsx", ".json", ".rds")),
           selectInput("dataset", "Or Select a Sample Dataset", choices = c("mtcars", "iris")),
-          actionButton("loadData", "Load Data")
+          actionButton("loadData", "Load Data"),
         ),
+        
         mainPanel(
           h4("Instructions"),
           p("Upload your dataset or select a sample dataset (e.g., mtcars or iris), then click 'Load Data'."),
@@ -53,19 +58,28 @@ ui <- fluidPage(
           checkboxInput("removeDuplicates", "Remove Duplicates", value = FALSE),
           
           hr(),
+          # User manually converse
+          selectizeInput("manualNumeric", "Make Selected Columns to Numeric", 
+                         choices = NULL, multiple = TRUE),
+          selectizeInput("manualCategorical", "Make Selected Columns to Categorical", 
+                         choices = NULL, multiple = TRUE),
+          selectizeInput("timeVars", "Select Date Variables", choices = NULL, multiple = TRUE),
+          p("The date variables need to be in a format that includes day, month and year values."),
+          
           selectizeInput("scaleCols", "Columns to Scale", 
                          choices = NULL, multiple = TRUE),
           
           hr(),
           selectizeInput("encodeCols", "Categorical Columns to Encode", choices = NULL, multiple = TRUE),
           selectInput("encodingStrategy", "Categorical Encoding Strategy",
-                      choices = c("None", "One-Hot Encoding", "Dummy Encoding")),
+                      choices = c("None", "One-Hot Encoding", "Dummy Encoding", "Label Encoding")),
           
           hr(),
           
           selectInput("outlierStrategy", "Outlier Handling Strategy", 
                       choices = c("None", "Remove Outliers", "Winsorize Outliers")),
           hr(),
+          
           actionButton("processData", "Process Data", class = "btn-primary")
         ),
         
@@ -78,7 +92,7 @@ ui <- fluidPage(
                      radioButtons("distPlotType", "Plot Type", choices = c("Histogram", "Boxplot")),
                      plotOutput("distPlot")
             ),
-            tabPanel("Summary", verbatimTextOutput("summaryInfo")),  
+            tabPanel("Historical Activities", verbatimTextOutput("summaryInfo")),  
             tabPanel("Processed Data", DTOutput("processedDataTable"))
           )
         )
@@ -120,7 +134,7 @@ ui <- fluidPage(
                      h4("Making New Feature"),
                      uiOutput("col1_ui"),
                      radioButtons("input_type", "Choose Input Type:", choices = c("Select Column", "Enter Number"), selected = "Select Column"),
-      				uiOutput("col2_or_number_ui"),
+                     uiOutput("col2_or_number_ui"),
                      textInput("NewF", "New Feature Name",value = "New Feature"),
                      selectizeInput("opF", "Operation Choice", choices = c("Addition","Subtraction","Multiplication","Division","Natural Log","Power")),
                      actionButton("applyOP", "Apply Operation", class = "btn-primary"),
@@ -140,15 +154,16 @@ ui <- fluidPage(
       )
       
       
+      
     ),
     
-    # 4. EDA tab
+    # 4. EDA - Visualization tab
     tabPanel(
-      title = "EDA",
-      titlePanel("EDA"),
+      title = "EDA - Visualization",
+      titlePanel("EDA - Visualization"),
       
       tabsetPanel(
-        # Univariate Analysis Tab
+        # Univariate Data Visualization Tab
         tabPanel(
           title = "Univariate Analysis",
           sidebarLayout(
@@ -206,7 +221,7 @@ ui <- fluidPage(
           )
         ),
         
-        # Bivariate Analysis Tab
+        # Bivariate Data Visualization Tab
         tabPanel(
           title = "Bivariate Analysis",
           sidebarLayout(
@@ -258,24 +273,226 @@ ui <- fluidPage(
               plotOutput("heatmapOutput", height = "500px")
             )
           )
-        )
+        ),
+        
+        # Time Series Tab
+        tabPanel(
+          title = "Time Series",
+          sidebarLayout(
+            sidebarPanel(
+              h4("Time Series Visual Analysis"),
+              p("Displays time series distribution, ACF and PACF plots."),
+              selectizeInput("timeVars3", "Time Variable of Reference", choices = NULL),
+              selectizeInput("ts_var", "Variable for Analysis", choices = NULL)
+            ),
+            
+            mainPanel(
+              plotOutput("ts_plot", height = "350px"),
+              plotOutput("acf_plot", height = "350px"),
+              plotOutput("pacf_plot", height = "350px")
+              
+            )
+          )
+        ),
       )
     ),
     
-    # About Page
+    # 5. EDA - Statistical Tests Tab
+    tabPanel(title = "EDA - Statistical Tests",
+             titlePanel("Statistical Tests"),
+             sidebarLayout(
+               sidebarPanel(
+                 selectInput("stat_test", "Select Statistical Test", 
+                             choices = c("Independence Test (Categorical)",
+                                         "Non-Linear Correlation/Independence Test (Numeric)",
+                                         "Normality Test", 
+                                         "Comparing Values for 2 Independent Groups",
+                                         "Comparing Values for at least 3 Independent Groups",
+                                         "Stationarity")),
+                 uiOutput("test_ui_inputs"),  
+                 actionButton("run_test", "Run Test")  
+               ),
+               mainPanel(
+                 verbatimTextOutput("Test Results"),
+                 tableOutput("shapiro_results"),
+                 tableOutput("chisquare_results"),
+                 tableOutput("spearman_results"),
+                 tableOutput("wilcoxon_results"),
+                 tableOutput("kruskal_results"),
+                 tableOutput("dicky_results")
+               )
+             )
+    ),
+    
+    # 6. About Page
     tabPanel(
-      title = "About",
-      titlePanel("About"),
-      p("This Shiny app is designed for interactive data analysis."),
-      p("You can upload your dataset, clean the data, and visualize the results."),
-      p("Created with R Shiny, March 2025")
+      title = "How to Use the App",
+      titlePanel("About This Project"),
+      tags$ol(
+        tags$li("Upload a dataset or use a provided sample dataset."),
+        tags$li("Navigate to the 'Data Preprocess' tab."),
+        tags$li("Clean and transform your data by selecting the appropriate variables and strategies."),
+        tags$li("Click 'Historical Activities' to view all the past preprocessing procedures."),
+        tags$li("Navigate to the 'Feature Engineering' tab."),
+        tags$li("Choose preferred method."),
+        tags$li("Specify columns, parameters, or operations as needed."),
+        tags$li("Apply and review the results."),
+        tags$li("Navigate to the 'EDA' tab."),
+        tags$li("Choose the appropriate analysis type."),
+        tags$li("Select variables and visualization options."),
+        tags$li("Analyze and interpret insights dynamically.")
+      ),
+      hr(),
+      
+      h3("Data Cleaning and Preprocessing"),
+      p("The Data Cleaning and Preprocessing modules allows users to initially clean, transform, and enrich raw data using the following functions:"),
+      tags$ul(
+        tags$li(strong("Missingness and Duplication"), " – Handle missing and duplicated values."),
+        tags$li(strong("Data Type Conversion"), " – Convert columns to appropriate data type."),
+        tags$li(strong("Transformation"), " – Standardize numeric columns, and encode categorical columns."),
+        tags$li(strong("Outliers"), " – Detect and handle outliers."),
+        tags$li(strong("Date Variable"), " – Conserves time format of specified variables.")
+      ),
+      
+      h3("1️⃣ Missingness and Duplication"),
+      tags$ul(
+        tags$li("The system automatically identifies missing values."),
+        tags$li("Select strategy to deal with null values: remove or impute with median for numeric columns or mode for categorical columns."),
+        tags$li("The system will identify duplicated values, see 'Duplicates'."),
+        tags$li("Remove duplicated values by clicking 'Remove Duplicates'.")
+      ),
+      
+      h3("2️⃣ Data Type Conversion"),
+      p("This function allows users to manually select columns to convert."),
+      tags$ul(
+        tags$li("The system can automatically recognize data type of every columns, with the exception of time variables."),
+        tags$li("For columns that are incorrectly recognized, user can select column(s) to convert to appropriate types.")
+      ),
+      
+      h3("3️⃣ Transformation"),
+      p("This function perform necessary transformations to numeric and categorical columns."),
+      tags$ul(
+        tags$li("Select numeric column(s) to standardize."),
+        tags$li("Select categorical column(s) to encode through One-Hot encoding, Dummy encoding, or Label Encoding."),
+        tags$li("Click 'New Feature Summary' to  view the effect of transformations.")
+      ),
+      
+      h3("4️⃣ Outliers"),
+      p("This function allows user to handle outliers"),
+      tags$ul(
+        tags$li("The system can automatically detect outliers using an interquartile range (IQR)."),
+        tags$li("Select strategy to handle outliers."),
+        tags$li("Click 'Processed Data' to  view the current dataset.")
+      ),
+      hr(),
+      
+      h3("Feature Engineering"),
+      p("The Feature Engineering module allows users to modify and enhance dataset features. It consists of three main functions:"),
+      
+      tags$ul(
+        tags$li(strong("Principal Component Analysis (PCA)"), " – Reduce dimensionality and extract important components."),
+        tags$li(strong("Feature Selection"), " – Identify the most relevant features for modeling."),
+        tags$li(strong("Custom Feature Creation"), " – Generate new features based on mathematical operations.")
+      ),
+      
+      h3("1️⃣ Principal Component Analysis (PCA)"),
+      p("PCA helps users transform features into principal components for dimensionality reduction."),
+      tags$ul(
+        tags$li("Select features for PCA transformation."),
+        tags$li("Choose the number of principal components."),
+        tags$li("Remove incorrect selections using the Backspace key."),
+        tags$li("The summary of principal components appears in the 'PCA Summary' subpanel."),
+        tags$li("Click 'Apply PCA' to transform data and view results in 'PCA Transformed Data'."),
+        tags$li("If satisfied, save the transformed data for further analysis in the EDA section by clicking 'Save PCA Result' .")
+      ),
+      
+      h3("2️⃣ Feature Selection"),
+      p("This function helps users select the most important features for modeling."),
+      tags$ul(
+        tags$li("Select the dependent variable and feature selection method."),
+        tags$li("Set relevant parameters (irrelevant ones can be ignored)."),
+        tags$li("If using regularization, enable cross-validation via 'Cross Validation for Select Lambda'."),
+        tags$li("View selected features in 'Feature Selection Summary'."),
+        tags$li("For detailed insights, enable 'Show More Detail'.")
+      ),
+      
+      h3("3️⃣ Custom Feature Creation"),
+      p("Users can create new features using mathematical operations."),
+      tags$ul(
+        tags$li("Choose 'Selected Column' for operations on two features or 'Enter Number' for single feature operations."),
+        tags$li("Operations include Addition, Subtraction, Multiplication, Division, and Logarithm."),
+        tags$li("For division, the first feature is the dividend, the second is the divisor. The same goes for subtraction."),
+        tags$li("For the natural logarithm option, only the first feature will take effect. "),
+        tags$li("For time series variables, choose the time variable of reference to correctly sort the data in chronological order before applying differencing or rolling means."),
+        tags$li("Choose 'Enter Number' in Input Type to specify the number of lags for differencing and rolling means."),
+        tags$li("Results appear in 'New Feature Summary' after clicking 'Apply Operation'."),
+        tags$li("To save the new feature, click 'Save the New Feature' for further analysis in the EDA section.")
+      ),
+      hr(),
+      
+      h3("Exploratory Data Analysis (EDA) - Visulaization"),
+      p("The EDA - Visualization module helps users explore and visualize datasets interactively. It consists of four sections:"),
+      tags$ul(
+        tags$li(strong("Univariate Analysis"), " – Analyze individual variables."),
+        tags$li(strong("Bivariate Analysis"), " – Analyze relationships between two variables."),
+        tags$li(strong("Heat Map"), " – Visualize correlations between numerical variables."),
+        tags$li(strong("Time Series"), " – Visualize distribution, ACF and PACF plots of Time Series data.")
+      ),
+      
+      h3("1️⃣ Univariate Analysis"),
+      p("Examine the distribution of a single variable:"),
+      tags$ul(
+        tags$li(strong("Numerical Analysis:"), "Histogram (custom binwidth, starting bin, percent display), Boxplot (horizontal/vertical), Dotplot."),
+        tags$li(strong("Categorical Analysis:"), "Bar Chart (option to display percentages), Pie Chart.")
+      ),
+      
+      h3("2️⃣ Bivariate Analysis"),
+      p("Analyze relationships between two variables:"),
+      tags$ul(
+        tags$li(strong("Numerical vs. Numerical:"), "Scatter Plot (optional trend line), Line Plot (optional smoothing)."),
+        tags$li(strong("Categorical vs. Categorical:"), "Grouped Bar Chart, Stacked Bar Chart, 100% Stacked Bar Chart."),
+        tags$li(strong("Numerical vs. Categorical:"), "Boxplot, Violin Plot.")
+      ),
+      
+      h3("3️⃣ Heat Map Analysis"),
+      p("Displays correlations between numerical variables:"),
+      tags$ul(
+        tags$li("Color-coded matrix (darker = stronger correlation)."),
+        tags$li("Helps identify patterns and dependencies.")
+      ),
+      
+      h3("Time Series Analysis"),
+      p("Explore time-dependent patterns and trends:"),
+      tags$ul(
+        tags$li("Plot distribution of variable of interest against specified time sequence."),
+        tags$li("Plot Autocorrelation Function of variable, sorted by specified time variable."),
+        tags$li("Plot Partial Autocorrelation Function of variable, sorted by specified time variable."),
+      ),
+      
+      hr(),
+      h3("Statistical Testing and Model Assumptions"),
+      p("Perform hypothesis tests to validate key statistical assumptions."),
+      tags$ul(
+        tags$li(strong("Shapiro-Wilk Test"), " – Check if a variable follows a normal distribution."),
+        tags$li(strong("Pearson’s Chi-Squared Test"), " – Assess independence between categorical variables."),
+        tags$li(strong("Spearman Correlation"), " – Test for non-linear relationships between numeric variables."),
+        tags$li(strong("Wilcoxon Rank-Sum Test"), " – Compare distributions of two independent groups."),
+        tags$li(strong("Kruskal-Wallis Test"), " – Compare distributions across multiple groups."),
+        tags$li(strong("Augmented Dickey-Fuller Test"), " – Determine stationarity in time series data."),
+        tags$li("For each test, select variable types as is specified on the web app screen.")
+      ),
+      hr(),
+      
+      p("Created with R Shiny, March 2025."),
+      p("Created by Dailin Song, Sara Hassani, Yi Lu, Ruoshi Zhang."),
+      p("STAT5243 - Applied Data Science, Spring 2025, Columbia University")
     )
   )
 )
 
 
 # Data Cleaning Function
-clean_data <- function(df, missing_strategy = "Remove Rows") {
+clean_data <- function(df, missing_strategy) {
   df <- df %>% mutate(across(where(is.character), ~ ifelse(. %in% c("?", "N/A", "NaN", "", " "), NA, .)))
   df <- df %>% mutate(across(where(is.character), ~ trimws(.) %>% tolower()))
   df <- df %>% mutate(across(where(is.character), ~ ifelse(grepl("^\\d{4}-\\d{2}-\\d{2}$", .),
@@ -327,6 +544,9 @@ encode_categorical <- function(df, encode_cols, strategy = "None") {
           dummies <- as.data.frame(dummies[,-1, drop = FALSE])
           df[[col]] <- NULL
           df <- cbind(df, dummies)
+        } else if (strategy == "Label Encoding") {
+          # Label encoding
+          df[[col]] = as.integer(factor(df[[col]]))
         }
       }
     }
@@ -398,10 +618,10 @@ ols_step_way_c <- function(lm, way, c) {
     if (c == "AIC") {
       return(ols_step_backward_aic(lm))
     }
-     if (c == "SBIC") {
+    if (c == "SBIC") {
       return(ols_step_backward_sbic(lm))
     }
-
+    
   }
   if (way == "both") {
     if (c == "p-value") {
@@ -413,7 +633,7 @@ ols_step_way_c <- function(lm, way, c) {
     if (c == "AIC") {
       return(ols_step_both_aic(lm))
     }
-     if (c == "SBIC") {
+    if (c == "SBIC") {
       return(ols_step_both_sbic(lm))
     }
   }
@@ -482,7 +702,7 @@ applyFS <- function(df, y_cols,method, lambdaL=0.01, lambdaCV=FALSE, criteriaFS=
 }
 
 #new Feature
-new_maker <- function(df, col1, operation, input_type, col2 = NULL, number_input = NULL, new_col_name) {
+new_maker <- function(df, col1, operation, input_type, col2, number_input, new_col_name, time) {
   operation_map <- list(
     "Addition" = `+`,
     "Subtraction" = `-`,
@@ -491,15 +711,36 @@ new_maker <- function(df, col1, operation, input_type, col2 = NULL, number_input
     "Natural Log" = log,
     "Power" = `^`
   )
-
-  if (input_type == "Select Column" && !is.null(col2)) {
-    df[[new_col_name]] <- operation_map[[operation]](df[[col1]], df[[col2]])
-  } else if (input_type == "Enter Number" && !is.null(number_input)) {
-    if (operation == "Natural Log") {
-      df[[new_col_name]] <- log(df[[col1]])
-    } else {
-      df[[new_col_name]] <- operation_map[[operation]](df[[col1]], number_input)
+  
+  if(operation %in% names(operation_map)){
+    if (input_type == "Select Column" && !is.null(col2)) {
+      df[[new_col_name]] <- operation_map[[operation]](df[[col1]], df[[col2]])
+    } else if (input_type == "Enter Number" && !is.null(number_input)) {
+      if (operation == "Natural Log") {
+        df[[new_col_name]] <- log(df[[col1]])
+      } else {
+        df[[new_col_name]] <- operation_map[[operation]](df[[col1]], number_input)
+      }
     }
+  }
+  
+  # Time Series Feature Engineering
+  if(operation == "Month"){
+    df[[new_col_name]] = month(df[[col1]])
+  }
+  if(operation == "Year"){
+    df[[new_col_name]] = year(df[[col1]])
+  }
+  if(operation == "Day of the Week"){
+    df[[new_col_name]] = weekdays(df[[col1]])
+  }
+  if(operation == "Differencing" && input_type == "Enter Number" && !is.null(number_input)){
+    temp = xts(df[[col1]], order.by = df[[time]])
+    df[[new_col_name]] = c(rep(NA, number_input), diff(df[[col1]], lag = number_input))
+  }
+  if(operation == "Rolling Mean" && input_type == "Enter Number" && !is.null(number_input)){
+    temp = xts(df[[col1]], order.by = df[[time]])
+    df[[new_col_name]] = rollmean(df[[col1]], k = number_input, fill = NA, align = "right")
   }
   
   return(df)
@@ -509,12 +750,12 @@ new_maker <- function(df, col1, operation, input_type, col2 = NULL, number_input
 server <- function(input, output, session) {
   origionData <- reactiveVal(NULL)  
   reactiveData <- reactiveVal(NULL)  
-  summaryLog <- reactiveVal("No modifications made yet.")
+  summaryLog <- reactiveVal(c("Preprocessing activities:"))
   PCA_transformed_Data<- reactiveVal(NULL)  
   FS_result<- reactiveVal(NULL)  
-NF_Data <- reactiveVal(data.frame())  
- new_feature_name <- reactiveVal(NULL)  
-
+  NF_Data <- reactiveVal(data.frame())  
+  new_feature_name <- reactiveVal(NULL)  
+  
   # Upload & Read Data
   observeEvent(input$loadData, {
     df <- if (!is.null(input$file)) {
@@ -533,7 +774,7 @@ NF_Data <- reactiveVal(data.frame())
     
     origionData(df)
     reactiveData(df)
-    summaryLog("Data loaded successfully.")
+    summaryLog(c(summaryLog(), "Data loaded successfully."))
   })
   
   observe({
@@ -542,12 +783,20 @@ NF_Data <- reactiveVal(data.frame())
       updateSelectInput(session, "xvar", choices = names(df)) 
       updateSelectInput(session, "yvar", choices = names(df))
       
+      updateSelectizeInput(session, "manualNumeric", choices = names(df), server = TRUE)
+      updateSelectizeInput(session, "manualCategorical", choices = names(df), server = TRUE)
+      
       numeric_cols <- names(df)[sapply(df, is.numeric)]
       updateSelectInput(session, "distCol", choices = numeric_cols)
+      updateSelectInput(session, "ts_var", choices = names(df))
       updateSelectizeInput(session, "scaleCols", choices = numeric_cols, server = TRUE)
       
       categorical_cols <- names(df)[sapply(df, is.factor)]
       updateSelectizeInput(session, "encodeCols", choices = categorical_cols, server = TRUE)
+      
+      updateSelectInput(session, "timeVars", choices = names(df))
+      updateSelectInput(session, "timeVars2", choices = names(df))
+      updateSelectInput(session, "timeVars3", choices = names(df))
     }
   })
   
@@ -560,30 +809,59 @@ NF_Data <- reactiveVal(data.frame())
       num_duplicates <- sum(duplicated(df))
       if (num_duplicates > 0) {
         df <- unique(df)
-        summaryLog(paste(summaryLog(), "Removed Duplicates:", num_duplicates))
+        summaryLog(c(summaryLog(), paste("Removed Duplicates:", num_duplicates)))
       } else {
-        summaryLog(paste(summaryLog(), "No duplicates found."))
+        summaryLog(c(summaryLog(), "No duplicates found."))
       }
     }
     
-    # 2. Scale if user selected columns
+    # 2. let user manually select columns to convert to corresponding type
+    if (!is.null(input$manualNumeric) && length(input$manualNumeric) > 0) {
+      for(col in input$manualNumeric) {
+        df[[col]] <- as.numeric(as.character(df[[col]]))
+      }
+      summaryLog(c(summaryLog(), 
+                   paste("Manually converted to numeric:", 
+                         paste(input$manualNumeric, collapse = ", "))))
+    }
+    
+    if (!is.null(input$manualCategorical) && length(input$manualCategorical) > 0) {
+      for(col in input$manualCategorical) {
+        df[[col]] <- as.factor(as.character(df[[col]]))
+      }
+      summaryLog(c(summaryLog(), 
+                   paste("Manually converted to categorical:", 
+                         paste(input$manualCategorical, collapse = ", "))))
+    }
+    
+    # 3. Scale if user selected columns
     if (!is.null(input$scaleCols) && length(input$scaleCols) > 0) {
       df <- standardize(df, input$scaleCols)
       summaryLog(paste(summaryLog(), "Scaled columns:", paste(input$scaleCols, collapse = ", ")))
     }
     
-    # 3. Encode categorical cols if user selected cols & strategy != "None"
+    # 4. Encode categorical cols if user selected cols & strategy != "None"
     if (!is.null(input$encodeCols) && length(input$encodeCols) > 0 && input$encodingStrategy != "None") {
       df <- encode_categorical(df, input$encodeCols, strategy = input$encodingStrategy)
-      summaryLog(paste(summaryLog(), "Encoded columns:", paste(input$encodeCols, collapse = ", "),
-                       "Strategy:", input$encodingStrategy))
+      summaryLog(c(summaryLog(), 
+                   paste("Encoded columns:", paste(input$encodeCols, collapse = ", "),
+                         "Strategy:", input$encodingStrategy)))
     }
     
-    # 4. Handle Outliers
+    # 5. Handle Outliers
     if (input$outlierStrategy != "None") {
       df <- handle_outliers(df, 
                             outlier_strategy = input$outlierStrategy)
-      summaryLog(paste(summaryLog(), "Outlier Handling:", input$outlierStrategy))
+      summaryLog(c(summaryLog(), paste("Outlier Handling:", input$outlierStrategy)))
+    }
+    
+    # 6. Turn variables into Date format
+    if(!is.null(input$timeVars)){
+      l = length(input$timeVars)
+      for(i in 1:l){
+        var = input$timeVars[i]
+        df[[var]] = as.Date(df[[var]])
+      }
     }
     
     # Update reactiveData
@@ -602,7 +880,7 @@ NF_Data <- reactiveVal(data.frame())
   })
   
   output$summaryInfo <- renderPrint({
-    summaryLog()
+    cat(summaryLog(), sep = "\n")
   })
   
   output$dataSummary <- renderPrint({
@@ -740,14 +1018,14 @@ NF_Data <- reactiveVal(data.frame())
   })
   
   #new feature 
- output$col1_ui <- renderUI({
- 	data <- reactiveData()
+  output$col1_ui <- renderUI({
+    data <- reactiveData()
     req(data)
     selectInput("col1", "Select First Column:", choices = names( data))
   })
   
   output$col2_or_number_ui <- renderUI({
-  	data <- reactiveData()
+    data <- reactiveData()
     req(data)
     if (input$input_type == "Select Column") {
       selectInput("col2", "Select Second Column:", choices = names( data))
@@ -755,39 +1033,40 @@ NF_Data <- reactiveVal(data.frame())
       numericInput("number_input", "Enter Number:", value = 1)
     }
   })
-
-observeEvent(input$applyOP, {
-  df <- reactiveData()  
   
-  updated_df <- new_maker(
-    df = df,
-    col1 = input$col1,
-    operation = input$opF,
-    input_type = input$input_type,
-    col2 = input$col2,
-    number_input = input$number_input,
-    new_col_name = input$NewF
-  )
-
-  NF_Data(updated_df)  
-  new_feature_name(input$NewF)
-})
-
-
-observeEvent(input$saveNF,{
-	req(NF_Data())
-	reactiveData(NF_Data())
-	})
-
-output$newSummary <- renderPrint({
-  req(NF_Data(), new_feature_name())  
-  df <- NF_Data()
-  colname <- new_feature_name()
-  cat("New Feature Name:",colname,"\n")
-  cat("Distribution:","\n")
-  print(summary(df[[colname]]))
-})
-
+  observeEvent(input$applyOP, {
+    df <- reactiveData()  
+    
+    updated_df <- new_maker(
+      df = df,
+      col1 = input$col1,
+      operation = input$opF,
+      input_type = input$input_type,
+      col2 = input$col2,
+      number_input = input$number_input,
+      new_col_name = input$NewF,
+      time = input$timeVars2
+    )
+    
+    NF_Data(updated_df)  
+    new_feature_name(input$NewF)
+  })
+  
+  
+  observeEvent(input$saveNF,{
+    req(NF_Data())
+    reactiveData(NF_Data())
+  })
+  
+  output$newSummary <- renderPrint({
+    req(NF_Data(), new_feature_name())  
+    df <- NF_Data()
+    colname <- new_feature_name()
+    cat("New Feature Name:",colname,"\n")
+    cat("Distribution:","\n")
+    print(summary(df[[colname]]))
+  })
+  
   
   observe({
     df <- reactiveData()
@@ -923,7 +1202,275 @@ output$newSummary <- renderPrint({
       labs(title = "Correlation Heatmap", x = "", y = "")
   })
   
+  # Output Time Series Plots
+  TS_PLOT <- reactive({
+    df <- reactiveData()
+    req(df, input$ts_var, input$timeVars3)
+    
+    temp <- xts(df[[input$ts_var]], order.by = df[[input$timeVars3]])
+    title <- paste0("Time Series Distribution of ", input$ts_var)
+    plot(temp, main = title)
+  })
+  
+  ACF_PLOT <- reactive({
+    df <- reactiveData()
+    req(df, input$ts_var, input$timeVars3)
+    
+    var1 = df[[input$ts_var]]
+    var2 = df[[input$timeVars3]]
+    
+    var1 = var1[order(var2)]
+    title <- paste0(input$ts_var, "ACF")
+    acf(var1, main = title)
+  })
+  
+  PACF_PLOT <- reactive({
+    df <- reactiveData()
+    req(df, input$ts_var, input$timeVars3)
+    
+    var1 = df[[input$ts_var]]
+    var2 = df[[input$timeVars3]]
+    
+    var1 = var1[order(var2)]
+    title <- paste0(input$ts_var, "PACF")
+    pacf(var1, main = title)
+  })
+  
+  # Use renderPlot() to display the plots in the UI
+  output$ts_plot <- renderPlot({
+    TS_PLOT()  # Call the reactive expression
+  })
+  
+  output$acf_plot <- renderPlot({
+    ACF_PLOT()  # Call the reactive expression
+  })
+  
+  output$pacf_plot <- renderPlot({
+    PACF_PLOT()  # Call the reactive expression
+  })
+  
+  # Running Statistical Tests
+  shapiro_results = reactiveVal()
+  chisquare_results = reactiveVal()
+  spearman_results = reactiveVal()
+  wilcoxon_results = reactiveVal()
+  kruskal_results = reactiveVal()
+  dicky_results = reactiveVal()
+  
+  output$test_ui_inputs <- renderUI({
+    req(input$stat_test)  
+    
+    df <- reactiveData()
+    req(df)
+    
+    if (input$stat_test == "Normality Test") {
+      selectInput("var_normality", "Select Variable", choices = names(df))
+    } else {
+      if (input$stat_test == "Independence Test (Categorical)") {
+        selectizeInput("indep_categ", "Select Two Variables", 
+                       choices = names(df)[sapply(df, is.factor)], 
+                       multiple = TRUE, 
+                       options = list(maxItems = 2, 
+                                      placeholder = 'Select exactly two variables'))
+      } else {
+        if(input$stat_test == "Non-Linear Correlation/Independence Test (Numeric)"){
+          selectizeInput("non_linear", "Select Two Variables", 
+                         choices = names(df)[sapply(df, is.numeric)], 
+                         multiple = TRUE, 
+                         options = list(maxItems = 2, 
+                                        placeholder = 'Select exactly two variables'))
+        }else{
+          if(input$stat_test == "Comparing Values for 2 Independent Groups"){
+            
+            fluidRow(
+              column(6, selectInput("factor_var", "Select Categorical Variable", 
+                                    choices = names(df)[sapply(df, is.factor)], 
+                                    selected = NULL)),
+              column(6, selectInput("numeric_var", "Select Numeric Variable", 
+                                    choices = names(df)[sapply(df, is.numeric)], 
+                                    selected = NULL))
+            )
+            
+          }else{
+            if(input$stat_test == "Comparing Values for at least 3 Independent Groups"){
+              
+              fluidRow(
+                column(6, selectInput("ordinal_var", "Select Ordinal Variable", 
+                                      choices = names(df)[sapply(df, is.factor)], 
+                                      selected = NULL)),
+                column(6, selectInput("numeric_var2", "Select Numeric Variable", 
+                                      choices = names(df)[sapply(df, is.numeric)], 
+                                      selected = NULL))
+              )
+              
+            }else{
+              if(input$stat_test == "Stationarity"){
+                
+                fluidRow(
+                  column(6, selectInput("timesVar4", "Select Time Variable", 
+                                        choices = names(df), 
+                                        selected = NULL)),
+                  column(6, selectInput("station", "Select Variable for Analysis", 
+                                        choices = names(df), 
+                                        selected = NULL))
+                )
+                
+              }else{
+                return(NULL)  
+              }
+            }
+          }
+        }  
+      }
+    }
+    
+  })
+  
+  # Running the test
+  observeEvent(input$run_test, {
+    req(input$stat_test, reactiveData())  # Ensure test type and data exist
+    
+    df <- reactiveData()
+    
+    if (input$stat_test == "Normality Test") {
+      req(input$var_normality)  
+      
+      # Ensure the selected variable is numeric
+      req(is.numeric(df[[input$var_normality]]))
+      
+      # Perform Shapiro-Wilk test
+      shapiro = shapiro.test(df[[input$var_normality]])
+      shapiro = data.frame(
+        '.' = c("test statistic", "p-value"),
+        'Shapiro-Wilk Normality Test' = c(shapiro$statistic, shapiro$p.value)
+      )
+      
+      # Store results
+      shapiro_results(shapiro)
+      
+    }else{
+      if (input$stat_test == "Independence Test (Categorical)"){
+        req(input$indep_categ)
+        
+        if (length(input$indep_categ) != 2) {
+          showNotification("Error: Please select exactly 2 categorical variables.", 
+                           type = "error")
+          return(NULL)
+        }
+        
+        var1 = input$indep_categ[1]  
+        var2 = input$indep_categ[2]
+        
+        chi_sq = chisq.test(table(df[[var1]], df[[var2]]))
+        chi_sq = data.frame(
+          '.' = c("test statistic", "p-value"),
+          'Pearson.s Chi-squared test' = c(chi_sq$statistic, chi_sq$p.value)
+        )
+        chisquare_results(chi_sq)
+        
+      }else{
+        if(input$stat_test == "Non-Linear Correlation/Independence Test (Numeric)"){
+          req(input$non_linear)
+          
+          if (length(input$indep_categ) != 2) {
+            showNotification("Error: Please select exactly 2 numeric variables.", 
+                             type = "error")
+            return(NULL)
+          }
+          
+          var1 = input$non_linear[1]  
+          var2 = input$non_linear[2]
+          
+          spearman = cor.test(df[[var1]], df[[var2]], method = "spearman")
+          spearman = data.frame(
+            '.' = c("test statistic", "p-value"),
+            'Spearman Correlation Coefficient' = c(spearman$statistic, spearman$p.value)
+          )
+          spearman_results(spearman)
+        }else{
+          if(input$stat_test == "Comparing Values for 2 Independent Groups"){
+            req(input$factor_var)
+            req(input$numeric_var)
+            
+            var1 = input$factor_var
+            var2 = input$numeric_var
+            
+            wilcox = wilcox.test(df[[var1]], df[[var2]])
+            wilcox = data.frame(
+              '.' = c("test statistic", "p-value"),
+              'Wilcoxon Two Sided Rank Sum Test' = c(wilcox$statistic, wilcox$p.value)
+            )
+            wilcoxon_results(wilcox)
+          }else{
+            if(input$stat_test == "Comparing Values for at least 3 Independent Groups"){
+              req(input$ordinal_var)
+              req(input$numeric_var2)
+              
+              var1 = input$ordinal_var
+              var2 = input$numeric_var2
+              
+              kruskal = kruskal.test(df[[var2]] ~ df[[var1]])
+              kruskal = data.frame(
+                '.' = c("test statistic", "p-value"),
+                'Kruskal Wallis Test' = c(kruskal$statistic, kruskal$p.value)
+              )
+              kruskal_results(kruskal)
+            }else{
+              if(input$stat_test == "Stationarity"){
+                req(input$station)
+                req(input$timesVar4)
+                
+                var1 = df[[input$station]]
+                var2 = df[[input$timesVar4]]
+                
+                var1 = var1[order(var2)]
+                
+                dicky = adf.test(var1)
+                dicky = data.frame(
+                  '.' = c("test statistic", "p-value"),
+                  'Augmented Dicky Fueller Test' = c(dicky$statistic, dicky$p.value)
+                )
+                dicky_results(dicky)
+              }
+            }
+          }
+        }
+      }
+    }
+  })
+  
+  # Displaying the test results
+  output$shapiro_results <- renderTable({
+    req(shapiro_results)
+    shapiro_results()  
+  })
+  
+  output$chisquare_results = renderTable({
+    req(chisquare_results)
+    chisquare_results()
+  })
+  
+  output$spearman_results <- renderTable({
+    req(spearman_results)
+    spearman_results()  
+  })
+  
+  output$wilcoxon_results <- renderTable({
+    req(wilcoxon_results)
+    wilcoxon_results()  
+  })
+  
+  output$kruskal_results <- renderTable({
+    req(kruskal_results)
+    kruskal_results()  
+  })
+  
+  output$dicky_results <- renderTable({
+    req(dicky_results)
+    dicky_results()  
+  })
 }
+
 
 # Run Shiny App
 shinyApp(ui, server)
